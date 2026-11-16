@@ -1,10 +1,10 @@
+import { Button } from "@/components/ui/button"
+import { Package } from "lucide-react"
 
-function App() {
-  return (
-    <>
-        <h1 className="text-2xl font-bold text-center p-4">Warehouse Management</h1>
-    </>
-  )
+export default function App() {
+    return (
+        <div className="flex min-h-svh items-center justify-center">
+            <Button><Package /> Lager öffnen</Button>
+        </div>
+    )
 }
-
-export default App
