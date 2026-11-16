@@ -20,7 +20,4 @@ public class Customer extends BaseEntity {
     private String street;
     private String zipCode;
     private String city;
-
-    @OneToMany(mappedBy = "outboundOrder", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<OutboundOrder> orders = new ArrayList<>();
 }
