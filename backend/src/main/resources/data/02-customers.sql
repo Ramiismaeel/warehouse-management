@@ -1,0 +1,4 @@
+INSERT INTO customer (name, email, phone, street, zip_code, city, created_at, updated_at) VALUES
+                                                                                              ('Müller Bau GmbH',     'einkauf@mueller-bau.example',  '+49 30 1234567', 'Hauptstraße 12', '10115', 'Berlin',  CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+                                                                                              ('Schneider Logistik',  'info@schneider-log.example',   '+49 40 7654321', 'Hafenweg 3',     '20457', 'Hamburg', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+                                                                                              ('Bäckerei Weber',      'kontakt@baeckerei-weber.example', '+49 89 555123', 'Marktplatz 7', '80331', 'München', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
