@@ -1,4 +1,4 @@
-package training.backend.entities;
+package training.backend.product;
 
 
 import jakarta.persistence.*;
@@ -6,6 +6,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import training.backend.entities.BaseEntity;
 
 @Entity
 @Table(name = "product")
@@ -14,7 +15,7 @@ import lombok.Setter;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Product extends BaseEntity {
 
-    @Column(unique = true)
+    @Column(unique = true, nullable = false, length = 50)
     private String sku;
     private String name;
     private String description;
@@ -23,8 +24,9 @@ public class Product extends BaseEntity {
     private ProductUnit unit;
 
     @Setter(AccessLevel.NONE)
-    private int quantity;
+    private int quantity = 0;
     private int minQuantity;
+    @Column(length = 500)
     private String imageUrl;
 
     @Setter(AccessLevel.NONE)

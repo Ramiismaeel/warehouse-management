@@ -1,3 +1,7 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 # Warehouse Management – Gruppe 3
 
 Web app for warehouse stock management. Users manage **Artikel** (products) and **Kunden** (customers),
@@ -24,13 +28,16 @@ automatically when a document is confirmed. A dashboard warns about low stock.
 
 ## Tech stack
 
-**Backend:** Java 25 · Spring Boot 4.0.x · Maven (wrapper `./mvnw`) · Spring Web MVC · Spring Data JPA (Hibernate)
+**Backend:** Java 25 · Spring Boot 4.1.x · Maven (wrapper `./mvnw`) · Spring Web MVC · Spring Data JPA (Hibernate)
 · Bean Validation · H2 (dev) · PostgreSQL driver (prod profile, later) · Lombok · MapStruct · springdoc-openapi
 · JUnit 5, Mockito, MockMvc
 
 **Frontend:** React + TypeScript (strict) + Vite · Tailwind CSS v4 · shadcn/ui (Radix) · lucide-react (icons)
 · TanStack Query v5 · axios · React Router · react-hook-form + zod · @tanstack/react-table · sonner (toasts)
 · @fontsource-variable/inter (font)
+
+Not installed yet (add with the ticket that first needs them): TanStack Query, React Router, @tanstack/react-table.
+The frontend is still the scaffold (`App.tsx` + shadcn `components/ui`); the folders below are the target structure.
 
 ---
 
@@ -39,27 +46,33 @@ automatically when a document is confirmed. A dashboard warns about low stock.
 ```
 /
 ├─ CLAUDE.md
-├─ README.md
-├─ .github/pull_request_template.md
-├─ docs/                 PLAN.md, TICKETS.md, jira-import.csv
+├─ .github/              pull_request_template.md, workflows/maven.yml (CI)
+├─ docs/                 PLAN.md, TICKETS.md
 ├─ backend/              Spring Boot app (Maven)
 └─ frontend/             React app (Vite)
 ```
 
 ## Commands
 
-Backend (`cd backend`):
+Backend (`cd backend`, on Windows use `mvnw.cmd`):
 - `./mvnw spring-boot:run` → http://localhost:8080 (profile `dev` is the default)
 - `./mvnw verify` → compile + all tests
+- Single test class / method: `./mvnw test -Dtest=GlobalExceptionHandlerTest` ·
+  `./mvnw test -Dtest=GlobalExceptionHandlerTest#validationError_returns400WithErrorsMap`
+- Other profile: `./mvnw spring-boot:run -Dspring-boot.run.profiles=postgres`
 - Swagger UI: http://localhost:8080/swagger-ui.html
 - H2 console (dev): http://localhost:8080/h2-console · JDBC URL `jdbc:h2:mem:warehouse` · user `sa` · no password
 
 Frontend (`cd frontend`):
-- `npm install` · `npm run dev` → http://localhost:5173 (Vite proxies `/api` → `http://localhost:8080`)
-- `npm run lint` · `npm run build` · `npm run format`
-- Add a shadcn component: `npx shadcn@latest add <name>`
+- `npm install` · `npm run dev` → http://localhost:5173 (Vite proxies `/api`, see known issue below)
+- `npm run lint` · `npm run build` (`tsc -b && vite build`) · `npm run format` · `npm run format:check`
+- Add a shadcn component: `npx shadcn@latest add <name>` (style `radix-luma`, alias `@/` → `src/`)
 
 **Quality gates (must be green before a PR):** backend `./mvnw verify` · frontend `npm run lint` and `npm run build`.
+**CI:** GitHub Actions (`.github/workflows/maven.yml`) runs `mvn -B verify` on every push and PR — backend only,
+frontend gates must be run locally.
+
+**Known issue:** `frontend/vite.config.ts` proxies `/api` to `http://localhost:3000`, but the backend runs on `8080`.
 
 ---
 
@@ -115,30 +128,33 @@ Frontend (`cd frontend`):
 
 ## Backend architecture
 
-Package-by-feature, layered inside each feature. Base package `de.gruppe3.warehouse`.
+Package-by-feature, layered inside each feature. Base package `training.backend` (Maven `de.gruppe3:warehouse`).
+Shared code still lives in flat top-level packages; features are being extracted one ticket at a time.
 
 ```
-backend/src/main/java/de/gruppe3/warehouse/
-├─ WarehouseApplication.java
-├─ common/
-│  ├─ entity/      BaseEntity (id, createdAt, updatedAt)
-│  ├─ exception/   GlobalExceptionHandler, NotFoundException, DuplicateValueException, EntityInUseException,
-│  │               InsufficientStockException, InvalidStatusTransitionException
-│  └─ config/      CorsConfig, OpenApiConfig
-├─ document/       DocumentStatus, DocumentNumberGenerator      (shared by inbound + outbound)
-├─ stock/          StockService, StockDirection, StockChange    (the ONLY place that changes stock)
-├─ product/        Product, ProductUnit, ProductRepository, ProductService, ProductController, ProductMapper, dto/
-├─ customer/       Customer, CustomerRepository, CustomerService, CustomerController, CustomerMapper, dto/
-├─ inbound/        InboundDelivery, InboundDeliveryItem, *Repository, InboundDeliveryService,
-│                  InboundDeliveryController, InboundDeliveryMapper, dto/
-├─ outbound/       OutboundOrder, OutboundOrderItem, *Repository, OutboundOrderService,
-│                  OutboundOrderController, OutboundOrderMapper, dto/
-└─ dashboard/      DashboardController, DashboardService, dto/
+backend/src/main/java/training/backend/
+├─ BackendApplication.java
+├─ config/         CorsConfig (origins from `app.cors.allowed-origins`)
+├─ entities/       BaseEntity (id, createdAt, updatedAt), DocumentStatus, and the entities not yet moved into
+│                  a feature package: Customer, InboundDelivery(Item), OutboundOrder(Item)
+├─ exceptions/     GlobalExceptionHandler, NotFoundException, DuplicateValueException, EntityInUseException,
+│                  InsufficientStockException, InvalidStatusTransitionException
+└─ product/        Product, ProductUnit, ProductRepository, ProductService, ProductController, ProductMapper, dto/
 backend/src/main/resources/
-├─ application.yml · application-dev.yml · application-prod.yml
-└─ data/           products.sql, customers.sql, inbound.sql, outbound.sql   (one seed file per feature)
-backend/src/test/java/de/gruppe3/warehouse/   mirrors main
+├─ application.properties · application-{dev,postgres,prod}.properties
+├─ schema.sql      hand-written DDL (CHECK + unique constraints)
+└─ data/           01-products.sql, 02-customers.sql, 03-inbound-deliveries.sql, 04-outbound-orders.sql
+                   (number prefix = load order, FKs depend on it)
+backend/src/test/java/training/backend/   mirrors main
 ```
+
+Planned feature packages (create them in the same shape as `product/`): `customer/`, `inbound/`, `outbound/`,
+`stock/` (StockService — the ONLY place that changes stock), `document/` (DocumentNumberGenerator), `dashboard/`.
+When a ticket implements a feature, move its entity out of `entities/` into the feature package (as WM-20 did with
+`Product`).
+
+`Product.quantity` has no setter; it changes only via `Product.changeQuantity(delta)`, which must be called only
+from `StockService` (rule 1).
 
 **Layer rules**
 - **Controller:** HTTP only. Accepts/returns DTOs, `@Valid` on request bodies. No business logic, no repositories.
@@ -150,7 +166,7 @@ backend/src/test/java/de/gruppe3/warehouse/   mirrors main
 - **DTO:** Java `record`s in `dto/`: `XxxRequest`, `XxxResponse`, `XxxSummaryResponse` (list rows),
   `XxxDetailResponse`. Validation annotations on request records.
 - **Mapper:** MapStruct, `@Mapper(componentModel = "spring")`.
-- **Errors:** throw the exceptions from `common.exception`. `GlobalExceptionHandler` turns them into `ProblemDetail`.
+- **Errors:** throw the exceptions from `training.backend.exceptions`. `GlobalExceptionHandler` turns them into `ProblemDetail`.
   Controllers never build error responses themselves. User-facing messages in German, logs in English.
 
 **JPA conventions**
@@ -164,8 +180,15 @@ backend/src/test/java/de/gruppe3/warehouse/   mirrors main
 **Database & profiles**
 - `dev` (default): H2 in-memory, PostgreSQL mode, `ddl-auto=create-drop`, seeds from `data/*.sql`
   (`spring.sql.init.data-locations`, `spring.jpa.defer-datasource-initialization=true`). Data resets on restart.
-- `prod` (later): PostgreSQL via env vars `DB_URL`, `DB_USER`, `DB_PASSWORD`, `ddl-auto=validate`, Flyway added
-  when we switch.
+- `postgres`: local PostgreSQL, env vars with defaults (`DB_URL` → `jdbc:postgresql://localhost:5432/warehouse`,
+  `DB_USER` → `postgres`), `ddl-auto=create`, seeds always run.
+- `prod` (later): PostgreSQL via env vars `DB_URL`, `DB_USER`, `DB_PASSWORD` (no defaults), `ddl-auto=validate`,
+  Flyway added when we switch.
+- `test` (`src/test/resources/application-test.properties`): disables SQL init; activate with `@ActiveProfiles("test")`.
+- Hibernate creates the tables before `schema.sql` runs, so its `CREATE TABLE IF NOT EXISTS` statements are no-ops in
+  `dev`/`postgres`. Still keep entities and `schema.sql` in sync — `prod` validates against the real schema.
+- Shared settings (`application.properties`): `open-in-view=false`, default profile `dev`, CORS origin
+  `http://localhost:5173`.
 - **Portability rules for seed SQL:** standard SQL only, explicit column lists, **no explicit IDs** in INSERTs
   (identity sequences would collide), reference foreign keys via subselects (`(SELECT id FROM product WHERE sku = 'A-1001')`).
 - Configuration via env vars with defaults (`${DB_URL:...}`). No secrets in the repo.
