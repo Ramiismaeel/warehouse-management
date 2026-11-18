@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.stereotype.Service;
 import training.backend.exceptions.DuplicateValueException;
+import training.backend.exceptions.EntityInUseException;
 import training.backend.exceptions.NotFoundException;
 import training.backend.product.dto.ProductRequest;
 import training.backend.product.dto.ProductResponse;
@@ -17,6 +18,8 @@ import java.util.Locale;
 @Transactional
 public class ProductService {
 
+    private static final String ENTITY_LABEL = "Artikel";
+
     private final ProductRepository productRepository;
     private final ProductMapper productMapper;
 
@@ -27,15 +30,13 @@ public class ProductService {
 
     @Transactional(readOnly = true)
     public ProductResponse getById(Long id) {
-        Product product = productRepository.findById(id).orElseThrow(() -> new NotFoundException("Product", id));
-
-        return productMapper.toResponse(product);
+        return productMapper.toResponse(findProduct(id));
     }
 
     public ProductResponse createProduct(ProductRequest request) {
-        String sku = request.sku().trim().toUpperCase(Locale.ROOT);
-        if(productRepository.existsBySku(sku)) {
-            throw new DuplicateValueException(request.sku(), "this product is already in DB");
+        String sku = normalizeSku(request.sku());
+        if (productRepository.existsBySku(sku)) {
+            throw duplicateSku(sku);
         }
         Product product = productMapper.toEntity(request);
         product.setSku(sku);
@@ -43,10 +44,10 @@ public class ProductService {
     }
 
     public ProductResponse updateProduct(ProductRequest request, Long id) {
-        Product product = productRepository.findById(id).orElseThrow(()->  new NotFoundException("Product", id));
-        String sku = request.sku().trim().toUpperCase(Locale.ROOT);
-        if(productRepository.existsBySkuAndIdNot(sku, id)) {
-            throw new DuplicateValueException(sku, "this product is already in DB");
+        Product product = findProduct(id);
+        String sku = normalizeSku(request.sku());
+        if (productRepository.existsBySkuAndIdNot(sku, id)) {
+            throw duplicateSku(sku);
         }
 
         productMapper.updateEntity(request, product);
@@ -54,8 +55,26 @@ public class ProductService {
         return productMapper.toResponse(productRepository.saveAndFlush(product));
     }
 
+    /** Business rule 7: a product used in any document (any status) cannot be deleted. */
     public void deleteProduct(Long id) {
-        Product product = productRepository.findById(id).orElseThrow(()->  new NotFoundException("Product", id));
+        Product product = findProduct(id);
+        long usages = productRepository.countInboundDeliveryUsages(id)
+                + productRepository.countOutboundOrderUsages(id);
+        if (usages > 0) {
+            throw new EntityInUseException(ENTITY_LABEL, product.getName(), usages);
+        }
         productRepository.delete(product);
+    }
+
+    private Product findProduct(Long id) {
+        return productRepository.findById(id).orElseThrow(() -> new NotFoundException(ENTITY_LABEL, id));
+    }
+
+    private static String normalizeSku(String sku) {
+        return sku.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private static DuplicateValueException duplicateSku(String sku) {
+        return new DuplicateValueException("sku", "Die SKU „%s“ ist bereits vergeben.".formatted(sku));
     }
 }

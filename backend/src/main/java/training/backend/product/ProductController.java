@@ -3,10 +3,13 @@ package training.backend.product;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import training.backend.product.dto.ProductRequest;
 import training.backend.product.dto.ProductResponse;
 
+import java.net.URI;
 import java.util.List;
 
 @RestController
@@ -26,10 +29,14 @@ public class ProductController {
         return productService.getById(id);
     }
 
-    @ResponseStatus(HttpStatus.CREATED)
     @PostMapping
-    public ProductResponse createProduct(@Valid @RequestBody ProductRequest request) {
-        return productService.createProduct(request);
+    public ResponseEntity<ProductResponse> createProduct(@Valid @RequestBody ProductRequest request) {
+        ProductResponse created = productService.createProduct(request);
+        URI location = ServletUriComponentsBuilder.fromCurrentRequest()
+                .path("/{id}")
+                .buildAndExpand(created.id())
+                .toUri();
+        return ResponseEntity.created(location).body(created);
     }
 
     @PutMapping("/{id}")
