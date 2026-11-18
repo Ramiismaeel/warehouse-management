@@ -6,6 +6,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import training.backend.product.Product;
 
 import java.time.LocalDate;
 import java.util.ArrayList;

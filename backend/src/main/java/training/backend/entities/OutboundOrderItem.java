@@ -4,8 +4,7 @@ import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-
-import java.util.List;
+import training.backend.product.Product;
 
 
 @Entity
