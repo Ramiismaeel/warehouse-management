@@ -1,4 +1,4 @@
-package training.backend.entities;
+package training.backend.document;
 
 public enum DocumentStatus {
     DRAFT,

@@ -1,6 +1,6 @@
 package training.backend.exceptions;
 
-import training.backend.entities.DocumentStatus;
+import training.backend.document.DocumentStatus;
 
 /**
  * 409: an action is not allowed in the document's current status (e.g. editing a confirmed Beleg).
