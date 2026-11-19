@@ -6,6 +6,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import training.backend.document.DocumentStatus;
 import training.backend.product.Product;
 
 import java.time.LocalDate;
@@ -22,7 +23,7 @@ import java.util.Objects;
 public class InboundDelivery extends BaseEntity{
 
     @Column(unique = true)
-    private String deliveryNumber;
+    private String deliveryNumber; // WE-2026-1
     private String supplierName;
 
     @Enumerated(EnumType.STRING)

@@ -6,6 +6,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import training.backend.customer.Customer;
+import training.backend.document.DocumentStatus;
 import training.backend.product.Product;
 
 import java.time.LocalDate;
@@ -22,7 +23,7 @@ import java.util.Objects;
 public class OutboundOrder extends BaseEntity {
 
     @Column(unique = true)
-    private String orderNumber;
+    private String orderNumber; // WA-2026-
 
     @Enumerated(EnumType.STRING)
     @Setter(AccessLevel.NONE)
