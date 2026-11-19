@@ -1,10 +1,9 @@
-package training.backend.entities;
+package training.backend.customer;
 
 import jakarta.persistence.*;
 import lombok.*;
+import training.backend.entities.BaseEntity;
 
-import java.util.ArrayList;
-import java.util.List;
 
 @Entity
 @Table(name = "customer")
