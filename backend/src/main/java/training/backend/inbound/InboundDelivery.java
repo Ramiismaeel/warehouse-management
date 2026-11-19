@@ -1,4 +1,4 @@
-package training.backend.entities;
+package training.backend.inbound;
 
 
 import jakarta.persistence.*;
@@ -7,6 +7,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import training.backend.document.DocumentStatus;
+import training.backend.entities.BaseEntity;
 import training.backend.product.Product;
 
 import java.time.LocalDate;
@@ -20,7 +21,7 @@ import java.util.Objects;
 @Getter
 @Setter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class InboundDelivery extends BaseEntity{
+public class InboundDelivery extends BaseEntity {
 
     @Column(unique = true)
     private String deliveryNumber; // WE-2026-1

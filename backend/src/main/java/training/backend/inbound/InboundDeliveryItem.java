@@ -1,4 +1,4 @@
-package training.backend.entities;
+package training.backend.inbound;
 
 import jakarta.persistence.*;
 import lombok.AccessLevel;
