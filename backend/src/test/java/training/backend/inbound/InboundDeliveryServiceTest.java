@@ -18,6 +18,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
 import training.backend.document.DocumentStatus;
+import training.backend.exceptions.InsufficientStockException;
 import training.backend.exceptions.InvalidStatusTransitionException;
 import training.backend.exceptions.NotFoundException;
 import training.backend.inbound.dto.DeliveryItemRequest;
@@ -25,9 +26,12 @@ import training.backend.inbound.dto.DetailResponse;
 import training.backend.inbound.dto.InboundDeliveryRequest;
 import training.backend.inbound.dto.SummaryResponse;
 import training.backend.product.ProductRepository;
+import training.backend.stock.StockChange;
+import training.backend.stock.StockDirection;
+import training.backend.stock.StockService;
 
 /**
- * Integration tests for WM-27 against the real database (H2 in the default dev profile).
+ * Integration tests for WM-27 / WM-28 against the real database (H2 in the default dev profile).
  * Every test runs in a transaction that is rolled back afterwards, so tests don't affect each other.
  * Because nothing is committed, tests call flush() where the SQL must really run against the database.
  */
@@ -43,6 +47,9 @@ class InboundDeliveryServiceTest {
 
     @Autowired
     private ProductRepository productRepository;
+
+    @Autowired
+    private StockService stockService;
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
@@ -166,6 +173,98 @@ class InboundDeliveryServiceTest {
         assertTrue(repository.existsById(created.id()));
     }
 
+    // ---------- confirm ----------
+
+    @Test
+    void confirm_increasesStockAndSetsConfirmed() {
+        DetailResponse created = service.create(request("Müller GmbH",
+                new DeliveryItemRequest(schraube, 20),
+                new DeliveryItemRequest(mutter, 3)));
+
+        DetailResponse confirmed = service.confirm(created.id());
+
+        assertEquals(DocumentStatus.CONFIRMED, confirmed.status());
+        assertEquals(30, quantityOf(schraube));
+        assertEquals(8, quantityOf(mutter));
+    }
+
+    @Test
+    void confirm_twice_rejectsAndChangesStockOnlyOnce() {
+        DetailResponse created = service.create(request("Müller GmbH", new DeliveryItemRequest(schraube, 20)));
+        service.confirm(created.id());
+
+        assertThrows(InvalidStatusTransitionException.class, () -> service.confirm(created.id()));
+
+        assertEquals(30, quantityOf(schraube));
+        assertEquals(DocumentStatus.CONFIRMED, service.getById(created.id()).status());
+    }
+
+    @Test
+    void confirm_whenUnknownId_throwsNotFound() {
+        assertThrows(NotFoundException.class, () -> service.confirm(999_999L));
+    }
+
+    // ---------- cancel ----------
+
+    @Test
+    void cancel_decreasesStockAndSetsCancelled() {
+        DetailResponse created = service.create(request("Müller GmbH",
+                new DeliveryItemRequest(schraube, 20),
+                new DeliveryItemRequest(mutter, 3)));
+        service.confirm(created.id());
+
+        DetailResponse cancelled = service.cancel(created.id());
+
+        assertEquals(DocumentStatus.CANCELLED, cancelled.status());
+        assertEquals(10, quantityOf(schraube));
+        assertEquals(5, quantityOf(mutter));
+    }
+
+    @Test
+    void cancel_whenStockAlreadyShipped_rejectsAndChangesNothing() {
+        DetailResponse created = service.create(request("Müller GmbH",
+                new DeliveryItemRequest(schraube, 20),   // 10 -> 30, then 25 shipped -> 5 left, cancel needs 20
+                new DeliveryItemRequest(mutter, 3)));    // 5 -> 8, enough to cancel on its own
+        service.confirm(created.id());
+        stockService.apply(List.of(new StockChange(schraube, 25)), StockDirection.OUT);
+
+        InsufficientStockException ex = assertThrows(InsufficientStockException.class,
+                () -> service.cancel(created.id()));
+
+        assertEquals(1, ex.getShortages().size());
+        InsufficientStockException.Shortage shortage = ex.getShortages().getFirst();
+        assertEquals(schraube, shortage.productId());
+        assertEquals("TEST-0001", shortage.sku());
+        assertEquals(20, shortage.requested());
+        assertEquals(5, shortage.available());
+
+        assertEquals(5, quantityOf(schraube));
+        assertEquals(8, quantityOf(mutter));     // untouched although it had enough (all-or-nothing)
+        assertEquals(DocumentStatus.CONFIRMED, service.getById(created.id()).status());
+    }
+
+    @Test
+    void cancel_whenDraft_rejectsAndChangesNothing() {
+        DetailResponse created = service.create(request("Müller GmbH", new DeliveryItemRequest(schraube, 5)));
+
+        assertThrows(InvalidStatusTransitionException.class, () -> service.cancel(created.id()));
+
+        assertEquals(10, quantityOf(schraube));
+        assertEquals(DocumentStatus.DRAFT, service.getById(created.id()).status());
+    }
+
+    @Test
+    void cancel_whenAlreadyCancelled_rejects() {
+        DetailResponse created = service.create(request("Müller GmbH", new DeliveryItemRequest(schraube, 5)));
+        service.confirm(created.id());
+        service.cancel(created.id());
+
+        assertThrows(InvalidStatusTransitionException.class, () -> service.cancel(created.id()));
+        assertThrows(InvalidStatusTransitionException.class, () -> service.confirm(created.id()));
+
+        assertEquals(10, quantityOf(schraube));
+    }
+
     // ---------- list / detail ----------
 
     @Test
@@ -204,13 +303,14 @@ class InboundDeliveryServiceTest {
         return jdbcTemplate.queryForObject("SELECT id FROM product WHERE sku = ?", Long.class, sku);
     }
 
-    /** Confirms directly on the entity; the confirm endpoint comes with WM-28. */
     private void confirm(Long id) {
-        repository.findById(id).orElseThrow().confirm();
+        service.confirm(id);
         repository.flush();
     }
 
+    /** Flushes pending changes, then reads the quantity fresh from the database. */
     private int quantityOf(Long productId) {
+        repository.flush();
         entityManager.clear();
         return productRepository.findById(productId).orElseThrow().getQuantity();
     }

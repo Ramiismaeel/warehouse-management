@@ -1,8 +1,10 @@
 package training.backend.stock;
 
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import training.backend.exceptions.InsufficientStockException;
+import training.backend.exceptions.InsufficientStockException.Shortage;
 import training.backend.product.Product;
 import training.backend.product.ProductRepository;
 
@@ -49,7 +51,7 @@ public class StockService {
             totals.forEach((id, requested) -> {
                 Product product = products.get(id);
                 if(product.getQuantity()< requested) {
-                    shortages.add(new Shortage(id, product.getName(), requested, product.getQuantity()));
+                    shortages.add(new Shortage(id, product.getSku(), product.getName(), requested, product.getQuantity()));
                 }
             });
             if(!shortages.isEmpty()) {

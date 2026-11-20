@@ -13,6 +13,9 @@ import training.backend.inbound.dto.InboundDeliveryRequest;
 import training.backend.inbound.dto.SummaryResponse;
 import training.backend.product.Product;
 import training.backend.product.ProductRepository;
+import training.backend.stock.StockChange;
+import training.backend.stock.StockDirection;
+import training.backend.stock.StockService;
 
 import java.time.LocalDate;
 import java.time.Year;
@@ -25,6 +28,7 @@ public class InboundDeliveryService {
     private final InboundDeliveryRepository inboundDeliveryRepository;
     private final InboundDeliveryMapper inboundDeliveryMapper;
     private final ProductRepository productRepository;
+    private final StockService stockService;
 
 
     @Transactional(readOnly = true)
@@ -85,6 +89,39 @@ public class InboundDeliveryService {
         inboundDeliveryRepository.delete(delivery);
     }
 
+
+    /** DRAFT -> CONFIRMED and stock + for every item, in one transaction (business rule 4). */
+    @Transactional
+    public DetailResponse confirm(Long id) {
+        InboundDelivery delivery = findById(id);
+        if (!delivery.getStatus().canConfirm()) {
+            throw new InvalidStatusTransitionException("Bestätigen", delivery.getStatus());
+        }
+        stockService.apply(toStockChanges(delivery), StockDirection.IN);
+        delivery.confirm();
+        return inboundDeliveryMapper.toDetailResponse(delivery);
+    }
+
+    /**
+     * CONFIRMED -> CANCELLED and stock - for every item, in one transaction (business rule 4).
+     * If goods were already shipped, StockService rejects the whole cancel with all shortages (rule 3).
+     */
+    @Transactional
+    public DetailResponse cancel(Long id) {
+        InboundDelivery delivery = findById(id);
+        if (!delivery.getStatus().canCancel()) {
+            throw new InvalidStatusTransitionException("Stornieren", delivery.getStatus());
+        }
+        stockService.apply(toStockChanges(delivery), StockDirection.OUT);
+        delivery.cancel();
+        return inboundDeliveryMapper.toDetailResponse(delivery);
+    }
+
+    private static List<StockChange> toStockChanges(InboundDelivery delivery) {
+        return delivery.getItems().stream()
+                .map(item -> new StockChange(item.getProduct().getId(), item.getQuantity()))
+                .toList();
+    }
 
     private Product loadProduct(Long productId) {
         return productRepository.findById(productId).orElseThrow( () -> new NotFoundException("Product not found with id: ", productId));

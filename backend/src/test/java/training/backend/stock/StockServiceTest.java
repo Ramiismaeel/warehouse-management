@@ -15,6 +15,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.BeanUtils;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import training.backend.exceptions.InsufficientStockException;
 import training.backend.product.Product;
 import training.backend.product.ProductRepository;
 
