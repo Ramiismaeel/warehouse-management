@@ -1,12 +1,11 @@
-package training.backend.entities;
+package training.backend.inbound;
 
 
 import jakarta.persistence.*;
-import lombok.AccessLevel;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
+import training.backend.document.DocumentNumberGenerator;
 import training.backend.document.DocumentStatus;
+import training.backend.entities.BaseEntity;
 import training.backend.product.Product;
 
 import java.time.LocalDate;
@@ -20,7 +19,8 @@ import java.util.Objects;
 @Getter
 @Setter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class InboundDelivery extends BaseEntity{
+public class InboundDelivery extends BaseEntity {
+
 
     @Column(unique = true)
     private String deliveryNumber; // WE-2026-1
@@ -37,6 +37,15 @@ public class InboundDelivery extends BaseEntity{
     @Setter(AccessLevel.NONE)
     @OneToMany(mappedBy = "inboundDelivery", cascade = CascadeType.ALL , orphanRemoval = true)
     private List<InboundDeliveryItem> items = new ArrayList<>();
+
+    public int getItemCount() {
+        return items.size();
+    }
+
+    public int getTotalQuantity() {
+        return items.stream().mapToInt(InboundDeliveryItem::getQuantity).sum();
+    }
+
 
 
     /** Read-only view; change items via addItem() / clearItems(). */
