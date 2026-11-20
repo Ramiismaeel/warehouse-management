@@ -11,9 +11,11 @@ public record DetailResponse(
         String supplierName,
         LocalDate deliveryDate,
         DocumentStatus status,
-        int itemsCount,
+        int itemCount,
         int totalQuantity,
         String note,
         List<DeliveryItemResponse> items
 ) {
+
+
 }

@@ -8,6 +8,6 @@ public record DeliveryItemRequest(
         Long productId,
         @NotNull
         @Positive
-        int quantity
+        Integer quantity
 ) {
 }

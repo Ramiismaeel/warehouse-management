@@ -1,0 +1,217 @@
+package training.backend.inbound;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.time.LocalDate;
+import java.util.List;
+
+import jakarta.persistence.EntityManager;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.annotation.Transactional;
+
+import training.backend.document.DocumentStatus;
+import training.backend.exceptions.InvalidStatusTransitionException;
+import training.backend.exceptions.NotFoundException;
+import training.backend.inbound.dto.DeliveryItemRequest;
+import training.backend.inbound.dto.DetailResponse;
+import training.backend.inbound.dto.InboundDeliveryRequest;
+import training.backend.inbound.dto.SummaryResponse;
+import training.backend.product.ProductRepository;
+
+/**
+ * Integration tests for WM-27 against the real database (H2 in the default dev profile).
+ * Every test runs in a transaction that is rolled back afterwards, so tests don't affect each other.
+ * Because nothing is committed, tests call flush() where the SQL must really run against the database.
+ */
+@SpringBootTest
+@Transactional
+class InboundDeliveryServiceTest {
+
+    @Autowired
+    private InboundDeliveryService service;
+
+    @Autowired
+    private InboundDeliveryRepository repository;
+
+    @Autowired
+    private ProductRepository productRepository;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private EntityManager entityManager;
+
+    private Long schraube;
+    private Long mutter;
+
+    @BeforeEach
+    void setUp() {
+        schraube = createProduct("TEST-0001", 10);
+        mutter = createProduct("TEST-0002", 5);
+    }
+
+    // ---------- create ----------
+
+    @Test
+    void createReturnsDraftWithNumberAndItems() {
+        DetailResponse created = service.create(request("Müller GmbH",
+                new DeliveryItemRequest(schraube, 20),
+                new DeliveryItemRequest(mutter, 5)));
+
+        assertEquals(DocumentStatus.DRAFT, created.status());
+        assertTrue(created.number().matches("WE-\\d{4}-\\d{4,}"), "unexpected number: " + created.number());
+        assertEquals(2, created.itemCount());
+        assertEquals(25, created.totalQuantity());
+        assertTrue(created.items().stream().anyMatch(i -> "TEST-0001".equals(i.sku()) && i.quantity() == 20));
+    }
+
+    @Test
+    void createDoesNotChangeStock() {
+        service.create(request("Müller GmbH", new DeliveryItemRequest(schraube, 20)));
+        repository.flush();
+
+        assertEquals(10, quantityOf(schraube));
+    }
+
+    @Test
+    void createMergesDuplicateProducts() {
+        DetailResponse created = service.create(request("Müller GmbH",
+                new DeliveryItemRequest(schraube, 3),
+                new DeliveryItemRequest(schraube, 4)));
+
+        assertEquals(1, created.itemCount());
+        assertEquals(7, created.items().getFirst().quantity());
+    }
+
+    @Test
+    void createWithUnknownProductThrowsNotFound() {
+        assertThrows(NotFoundException.class, () ->
+                service.create(request("Müller GmbH", new DeliveryItemRequest(999_999L, 1))));
+    }
+
+    // Remove this test if your team keeps @NotNull on deliveryDate in the request.
+    @Test
+    void createWithoutDateUsesToday() {
+        DetailResponse created = service.create(new InboundDeliveryRequest(
+                "Müller GmbH", null, null, List.of(new DeliveryItemRequest(schraube, 1))));
+
+        assertEquals(LocalDate.now(), created.deliveryDate());
+    }
+
+    // ---------- update ----------
+
+    @Test
+    void updateDraftReplacesItemsEvenWhenKeepingSameProduct() {
+        DetailResponse created = service.create(request("Müller GmbH",
+                new DeliveryItemRequest(schraube, 5),
+                new DeliveryItemRequest(mutter, 2)));
+
+        service.update(created.id(), request("Schmidt AG", new DeliveryItemRequest(schraube, 8)));
+        repository.flush();          // runs the INSERT: fails here if the unique constraint is hit
+        entityManager.clear();       // forget cached entities, read fresh from the database
+
+        DetailResponse reloaded = service.getById(created.id());
+        assertEquals("Schmidt AG", reloaded.supplierName());
+        assertEquals(1, reloaded.itemCount());
+        assertEquals(8, reloaded.totalQuantity());
+        assertEquals(created.number(), reloaded.number());
+        assertEquals(DocumentStatus.DRAFT, reloaded.status());
+    }
+
+    @Test
+    void updateConfirmedIsRejectedAndChangesNothing() {
+        DetailResponse created = service.create(request("Müller GmbH", new DeliveryItemRequest(schraube, 5)));
+        confirm(created.id());
+
+        assertThrows(InvalidStatusTransitionException.class, () ->
+                service.update(created.id(), request("Schmidt AG", new DeliveryItemRequest(mutter, 1))));
+
+        entityManager.clear();
+        DetailResponse reloaded = service.getById(created.id());
+        assertEquals("Müller GmbH", reloaded.supplierName());
+        assertEquals("TEST-0001", reloaded.items().getFirst().sku());
+    }
+
+    // ---------- delete ----------
+
+    @Test
+    void deleteDraftRemovesDeliveryAndItems() {
+        DetailResponse created = service.create(request("Müller GmbH", new DeliveryItemRequest(schraube, 5)));
+
+        service.delete(created.id());
+        repository.flush();
+
+        assertFalse(repository.existsById(created.id()));
+        Integer itemRows = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM inbound_delivery_item WHERE inbound_delivery_id = ?",
+                Integer.class, created.id());
+        assertEquals(0, itemRows);
+    }
+
+    @Test
+    void deleteConfirmedIsRejected() {
+        DetailResponse created = service.create(request("Müller GmbH", new DeliveryItemRequest(schraube, 5)));
+        confirm(created.id());
+
+        assertThrows(InvalidStatusTransitionException.class, () -> service.delete(created.id()));
+        assertTrue(repository.existsById(created.id()));
+    }
+
+    // ---------- list / detail ----------
+
+    @Test
+    void getAllFiltersByStatus() {
+        Long draftId = service.create(request("Müller GmbH", new DeliveryItemRequest(schraube, 1))).id();
+        Long confirmedId = service.create(request("Schmidt AG", new DeliveryItemRequest(mutter, 1))).id();
+        confirm(confirmedId);
+
+        List<SummaryResponse> drafts = service.getAll(DocumentStatus.DRAFT);
+        assertTrue(drafts.stream().anyMatch(d -> d.id().equals(draftId)));
+        assertFalse(drafts.stream().anyMatch(d -> d.id().equals(confirmedId)));
+        assertTrue(drafts.stream().allMatch(d -> d.status() == DocumentStatus.DRAFT));
+
+        List<SummaryResponse> all = service.getAll(null);
+        assertTrue(all.stream().anyMatch(d -> d.id().equals(draftId)));
+        assertTrue(all.stream().anyMatch(d -> d.id().equals(confirmedId)));
+    }
+
+    @Test
+    void getByIdWithUnknownIdThrowsNotFound() {
+        assertThrows(NotFoundException.class, () -> service.getById(999_999L));
+    }
+
+    // ---------- helpers ----------
+
+    private InboundDeliveryRequest request(String supplier, DeliveryItemRequest... items) {
+        return new InboundDeliveryRequest(supplier, LocalDate.of(2026, 11, 20), "Test", List.of(items));
+    }
+
+    /** Inserts a product with plain SQL, so the test doesn't depend on ProductService's API. */
+    private Long createProduct(String sku, int quantity) {
+        jdbcTemplate.update("""
+                INSERT INTO product (sku, name, unit, quantity, min_quantity, version, created_at, updated_at)
+                VALUES (?, ?, 'PIECE', ?, 0, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                """, sku, "Test " + sku, quantity);
+        return jdbcTemplate.queryForObject("SELECT id FROM product WHERE sku = ?", Long.class, sku);
+    }
+
+    /** Confirms directly on the entity; the confirm endpoint comes with WM-28. */
+    private void confirm(Long id) {
+        repository.findById(id).orElseThrow().confirm();
+        repository.flush();
+    }
+
+    private int quantityOf(Long productId) {
+        entityManager.clear();
+        return productRepository.findById(productId).orElseThrow().getQuantity();
+    }
+}
