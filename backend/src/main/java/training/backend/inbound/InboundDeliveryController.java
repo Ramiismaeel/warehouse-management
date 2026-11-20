@@ -10,7 +10,6 @@ import training.backend.document.DocumentStatus;
 import training.backend.inbound.dto.DetailResponse;
 import training.backend.inbound.dto.InboundDeliveryRequest;
 import training.backend.inbound.dto.SummaryResponse;
-import training.backend.product.dto.ProductResponse;
 
 import java.net.URI;
 import java.util.List;
@@ -45,6 +44,16 @@ public class InboundDeliveryController {
     @PutMapping("/{id}")
     public DetailResponse update(@Valid @RequestBody InboundDeliveryRequest request, @PathVariable Long id) {
         return inboundDeliveryService.update(id, request);
+    }
+
+    @PostMapping("/{id}/confirm")
+    public DetailResponse confirm(@PathVariable Long id) {
+        return inboundDeliveryService.confirm(id);
+    }
+
+    @PostMapping("/{id}/cancel")
+    public DetailResponse cancel(@PathVariable Long id) {
+        return inboundDeliveryService.cancel(id);
     }
 
     @ResponseStatus(HttpStatus.NO_CONTENT)
