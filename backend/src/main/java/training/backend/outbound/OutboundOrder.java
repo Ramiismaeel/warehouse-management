@@ -1,4 +1,4 @@
-package training.backend.entities;
+package training.backend.outbound;
 
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import training.backend.customer.Customer;
 import training.backend.document.DocumentStatus;
+import training.backend.entities.BaseEntity;
 import training.backend.product.Product;
 
 import java.time.LocalDate;
@@ -41,6 +42,13 @@ public class OutboundOrder extends BaseEntity {
     @OneToMany(mappedBy = "outboundOrder", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OutboundOrderItem> items = new ArrayList<>();
 
+    public int getItemCount() {
+        return items.size();
+    }
+
+    public int getTotalQuantity() {
+        return items.stream().mapToInt(OutboundOrderItem::getQuantity).sum();
+    }
 
     /** Read-only view; change items via addItem() / clearItems(). */
     public List<OutboundOrderItem> getItems() {

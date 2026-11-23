@@ -9,8 +9,8 @@ import training.backend.document.DocumentStatus;
 import training.backend.exceptions.InsufficientStockException;
 import training.backend.exceptions.InvalidStatusTransitionException;
 import training.backend.exceptions.NotFoundException;
-import training.backend.inbound.dto.DeliveryItemResponse;
-import training.backend.inbound.dto.DetailResponse;
+import training.backend.inbound.dto.InboundDeliveryItemResponse;
+import training.backend.inbound.dto.InboundDeliveryDetailResponse;
 import training.backend.product.ProductUnit;
 
 import java.time.LocalDate;
@@ -104,9 +104,9 @@ class InboundDeliveryControllerTest {
 
     // ---------- helpers ----------
 
-    private static DetailResponse detail(Long id, DocumentStatus status) {
-        return new DetailResponse(id, "WE-2026-0001", "Müller GmbH", LocalDate.of(2026, 11, 20), status,
+    private static InboundDeliveryDetailResponse detail(Long id, DocumentStatus status) {
+        return new InboundDeliveryDetailResponse(id, "WE-2026-0001", "Müller GmbH", LocalDate.of(2026, 11, 20), status,
                 1, 20, null,
-                List.of(new DeliveryItemResponse(7L, "A-1001", "Schraube M4", 20, ProductUnit.PIECE)));
+                List.of(new InboundDeliveryItemResponse(7L, "A-1001", "Schraube M4", 20, ProductUnit.PIECE)));
     }
 }

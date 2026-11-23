@@ -21,10 +21,10 @@ import training.backend.document.DocumentStatus;
 import training.backend.exceptions.InsufficientStockException;
 import training.backend.exceptions.InvalidStatusTransitionException;
 import training.backend.exceptions.NotFoundException;
-import training.backend.inbound.dto.DeliveryItemRequest;
-import training.backend.inbound.dto.DetailResponse;
+import training.backend.inbound.dto.InboundDeliveryItemRequest;
+import training.backend.inbound.dto.InboundDeliveryDetailResponse;
 import training.backend.inbound.dto.InboundDeliveryRequest;
-import training.backend.inbound.dto.SummaryResponse;
+import training.backend.inbound.dto.InboundDeliverySummaryResponse;
 import training.backend.product.ProductRepository;
 import training.backend.stock.StockChange;
 import training.backend.stock.StockDirection;
@@ -70,9 +70,9 @@ class InboundDeliveryServiceTest {
 
     @Test
     void createReturnsDraftWithNumberAndItems() {
-        DetailResponse created = service.create(request("Müller GmbH",
-                new DeliveryItemRequest(schraube, 20),
-                new DeliveryItemRequest(mutter, 5)));
+        InboundDeliveryDetailResponse created = service.create(request("Müller GmbH",
+                new InboundDeliveryItemRequest(schraube, 20),
+                new InboundDeliveryItemRequest(mutter, 5)));
 
         assertEquals(DocumentStatus.DRAFT, created.status());
         assertTrue(created.number().matches("WE-\\d{4}-\\d{4,}"), "unexpected number: " + created.number());
@@ -83,7 +83,7 @@ class InboundDeliveryServiceTest {
 
     @Test
     void createDoesNotChangeStock() {
-        service.create(request("Müller GmbH", new DeliveryItemRequest(schraube, 20)));
+        service.create(request("Müller GmbH", new InboundDeliveryItemRequest(schraube, 20)));
         repository.flush();
 
         assertEquals(10, quantityOf(schraube));
@@ -91,9 +91,9 @@ class InboundDeliveryServiceTest {
 
     @Test
     void createMergesDuplicateProducts() {
-        DetailResponse created = service.create(request("Müller GmbH",
-                new DeliveryItemRequest(schraube, 3),
-                new DeliveryItemRequest(schraube, 4)));
+        InboundDeliveryDetailResponse created = service.create(request("Müller GmbH",
+                new InboundDeliveryItemRequest(schraube, 3),
+                new InboundDeliveryItemRequest(schraube, 4)));
 
         assertEquals(1, created.itemCount());
         assertEquals(7, created.items().getFirst().quantity());
@@ -102,14 +102,14 @@ class InboundDeliveryServiceTest {
     @Test
     void createWithUnknownProductThrowsNotFound() {
         assertThrows(NotFoundException.class, () ->
-                service.create(request("Müller GmbH", new DeliveryItemRequest(999_999L, 1))));
+                service.create(request("Müller GmbH", new InboundDeliveryItemRequest(999_999L, 1))));
     }
 
     // Remove this test if your team keeps @NotNull on deliveryDate in the request.
     @Test
     void createWithoutDateUsesToday() {
-        DetailResponse created = service.create(new InboundDeliveryRequest(
-                "Müller GmbH", null, null, List.of(new DeliveryItemRequest(schraube, 1))));
+        InboundDeliveryDetailResponse created = service.create(new InboundDeliveryRequest(
+                "Müller GmbH", null, null, List.of(new InboundDeliveryItemRequest(schraube, 1))));
 
         assertEquals(LocalDate.now(), created.deliveryDate());
     }
@@ -118,15 +118,15 @@ class InboundDeliveryServiceTest {
 
     @Test
     void updateDraftReplacesItemsEvenWhenKeepingSameProduct() {
-        DetailResponse created = service.create(request("Müller GmbH",
-                new DeliveryItemRequest(schraube, 5),
-                new DeliveryItemRequest(mutter, 2)));
+        InboundDeliveryDetailResponse created = service.create(request("Müller GmbH",
+                new InboundDeliveryItemRequest(schraube, 5),
+                new InboundDeliveryItemRequest(mutter, 2)));
 
-        service.update(created.id(), request("Schmidt AG", new DeliveryItemRequest(schraube, 8)));
+        service.update(created.id(), request("Schmidt AG", new InboundDeliveryItemRequest(schraube, 8)));
         repository.flush();          // runs the INSERT: fails here if the unique constraint is hit
         entityManager.clear();       // forget cached entities, read fresh from the database
 
-        DetailResponse reloaded = service.getById(created.id());
+        InboundDeliveryDetailResponse reloaded = service.getById(created.id());
         assertEquals("Schmidt AG", reloaded.supplierName());
         assertEquals(1, reloaded.itemCount());
         assertEquals(8, reloaded.totalQuantity());
@@ -136,14 +136,14 @@ class InboundDeliveryServiceTest {
 
     @Test
     void updateConfirmedIsRejectedAndChangesNothing() {
-        DetailResponse created = service.create(request("Müller GmbH", new DeliveryItemRequest(schraube, 5)));
+        InboundDeliveryDetailResponse created = service.create(request("Müller GmbH", new InboundDeliveryItemRequest(schraube, 5)));
         confirm(created.id());
 
         assertThrows(InvalidStatusTransitionException.class, () ->
-                service.update(created.id(), request("Schmidt AG", new DeliveryItemRequest(mutter, 1))));
+                service.update(created.id(), request("Schmidt AG", new InboundDeliveryItemRequest(mutter, 1))));
 
         entityManager.clear();
-        DetailResponse reloaded = service.getById(created.id());
+        InboundDeliveryDetailResponse reloaded = service.getById(created.id());
         assertEquals("Müller GmbH", reloaded.supplierName());
         assertEquals("TEST-0001", reloaded.items().getFirst().sku());
     }
@@ -152,7 +152,7 @@ class InboundDeliveryServiceTest {
 
     @Test
     void deleteDraftRemovesDeliveryAndItems() {
-        DetailResponse created = service.create(request("Müller GmbH", new DeliveryItemRequest(schraube, 5)));
+        InboundDeliveryDetailResponse created = service.create(request("Müller GmbH", new InboundDeliveryItemRequest(schraube, 5)));
 
         service.delete(created.id());
         repository.flush();
@@ -166,7 +166,7 @@ class InboundDeliveryServiceTest {
 
     @Test
     void deleteConfirmedIsRejected() {
-        DetailResponse created = service.create(request("Müller GmbH", new DeliveryItemRequest(schraube, 5)));
+        InboundDeliveryDetailResponse created = service.create(request("Müller GmbH", new InboundDeliveryItemRequest(schraube, 5)));
         confirm(created.id());
 
         assertThrows(InvalidStatusTransitionException.class, () -> service.delete(created.id()));
@@ -177,11 +177,11 @@ class InboundDeliveryServiceTest {
 
     @Test
     void confirm_increasesStockAndSetsConfirmed() {
-        DetailResponse created = service.create(request("Müller GmbH",
-                new DeliveryItemRequest(schraube, 20),
-                new DeliveryItemRequest(mutter, 3)));
+        InboundDeliveryDetailResponse created = service.create(request("Müller GmbH",
+                new InboundDeliveryItemRequest(schraube, 20),
+                new InboundDeliveryItemRequest(mutter, 3)));
 
-        DetailResponse confirmed = service.confirm(created.id());
+        InboundDeliveryDetailResponse confirmed = service.confirm(created.id());
 
         assertEquals(DocumentStatus.CONFIRMED, confirmed.status());
         assertEquals(30, quantityOf(schraube));
@@ -190,7 +190,7 @@ class InboundDeliveryServiceTest {
 
     @Test
     void confirm_twice_rejectsAndChangesStockOnlyOnce() {
-        DetailResponse created = service.create(request("Müller GmbH", new DeliveryItemRequest(schraube, 20)));
+        InboundDeliveryDetailResponse created = service.create(request("Müller GmbH", new InboundDeliveryItemRequest(schraube, 20)));
         service.confirm(created.id());
 
         assertThrows(InvalidStatusTransitionException.class, () -> service.confirm(created.id()));
@@ -208,12 +208,12 @@ class InboundDeliveryServiceTest {
 
     @Test
     void cancel_decreasesStockAndSetsCancelled() {
-        DetailResponse created = service.create(request("Müller GmbH",
-                new DeliveryItemRequest(schraube, 20),
-                new DeliveryItemRequest(mutter, 3)));
+        InboundDeliveryDetailResponse created = service.create(request("Müller GmbH",
+                new InboundDeliveryItemRequest(schraube, 20),
+                new InboundDeliveryItemRequest(mutter, 3)));
         service.confirm(created.id());
 
-        DetailResponse cancelled = service.cancel(created.id());
+        InboundDeliveryDetailResponse cancelled = service.cancel(created.id());
 
         assertEquals(DocumentStatus.CANCELLED, cancelled.status());
         assertEquals(10, quantityOf(schraube));
@@ -222,9 +222,9 @@ class InboundDeliveryServiceTest {
 
     @Test
     void cancel_whenStockAlreadyShipped_rejectsAndChangesNothing() {
-        DetailResponse created = service.create(request("Müller GmbH",
-                new DeliveryItemRequest(schraube, 20),   // 10 -> 30, then 25 shipped -> 5 left, cancel needs 20
-                new DeliveryItemRequest(mutter, 3)));    // 5 -> 8, enough to cancel on its own
+        InboundDeliveryDetailResponse created = service.create(request("Müller GmbH",
+                new InboundDeliveryItemRequest(schraube, 20),   // 10 -> 30, then 25 shipped -> 5 left, cancel needs 20
+                new InboundDeliveryItemRequest(mutter, 3)));    // 5 -> 8, enough to cancel on its own
         service.confirm(created.id());
         stockService.apply(List.of(new StockChange(schraube, 25)), StockDirection.OUT);
 
@@ -245,7 +245,7 @@ class InboundDeliveryServiceTest {
 
     @Test
     void cancel_whenDraft_rejectsAndChangesNothing() {
-        DetailResponse created = service.create(request("Müller GmbH", new DeliveryItemRequest(schraube, 5)));
+        InboundDeliveryDetailResponse created = service.create(request("Müller GmbH", new InboundDeliveryItemRequest(schraube, 5)));
 
         assertThrows(InvalidStatusTransitionException.class, () -> service.cancel(created.id()));
 
@@ -255,7 +255,7 @@ class InboundDeliveryServiceTest {
 
     @Test
     void cancel_whenAlreadyCancelled_rejects() {
-        DetailResponse created = service.create(request("Müller GmbH", new DeliveryItemRequest(schraube, 5)));
+        InboundDeliveryDetailResponse created = service.create(request("Müller GmbH", new InboundDeliveryItemRequest(schraube, 5)));
         service.confirm(created.id());
         service.cancel(created.id());
 
@@ -269,16 +269,16 @@ class InboundDeliveryServiceTest {
 
     @Test
     void getAllFiltersByStatus() {
-        Long draftId = service.create(request("Müller GmbH", new DeliveryItemRequest(schraube, 1))).id();
-        Long confirmedId = service.create(request("Schmidt AG", new DeliveryItemRequest(mutter, 1))).id();
+        Long draftId = service.create(request("Müller GmbH", new InboundDeliveryItemRequest(schraube, 1))).id();
+        Long confirmedId = service.create(request("Schmidt AG", new InboundDeliveryItemRequest(mutter, 1))).id();
         confirm(confirmedId);
 
-        List<SummaryResponse> drafts = service.getAll(DocumentStatus.DRAFT);
+        List<InboundDeliverySummaryResponse> drafts = service.getAll(DocumentStatus.DRAFT);
         assertTrue(drafts.stream().anyMatch(d -> d.id().equals(draftId)));
         assertFalse(drafts.stream().anyMatch(d -> d.id().equals(confirmedId)));
         assertTrue(drafts.stream().allMatch(d -> d.status() == DocumentStatus.DRAFT));
 
-        List<SummaryResponse> all = service.getAll(null);
+        List<InboundDeliverySummaryResponse> all = service.getAll(null);
         assertTrue(all.stream().anyMatch(d -> d.id().equals(draftId)));
         assertTrue(all.stream().anyMatch(d -> d.id().equals(confirmedId)));
     }
@@ -290,7 +290,7 @@ class InboundDeliveryServiceTest {
 
     // ---------- helpers ----------
 
-    private InboundDeliveryRequest request(String supplier, DeliveryItemRequest... items) {
+    private InboundDeliveryRequest request(String supplier, InboundDeliveryItemRequest... items) {
         return new InboundDeliveryRequest(supplier, LocalDate.of(2026, 11, 20), "Test", List.of(items));
     }
 

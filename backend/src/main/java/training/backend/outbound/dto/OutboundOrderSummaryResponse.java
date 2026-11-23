@@ -1,15 +1,14 @@
-package training.backend.inbound.dto;
+package training.backend.outbound.dto;
 
 import training.backend.document.DocumentStatus;
 
-
 import java.time.LocalDate;
 
-public record SummaryResponse(
+public record OutboundOrderSummaryResponse(
         Long id,
         String number,
-        String supplierName,
-        LocalDate deliveryDate,
+        String customerName,
+        LocalDate orderDate,
         DocumentStatus status,
         int itemCount,
         int totalQuantity
