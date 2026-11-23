@@ -15,6 +15,7 @@ export const common = {
     backToDashboard: "Zum Dashboard",
     confirm: "Bestätigen",
     cancel: "Abbrechen",
+    retry: "Erneut versuchen",
   },
   table: {
     search: "Suchen …",
