@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS product (
        unit          VARCHAR(20)  NOT NULL,
        quantity      INTEGER      NOT NULL DEFAULT 0 CHECK (quantity >= 0),
        min_quantity  INTEGER      NOT NULL DEFAULT 0 CHECK (min_quantity >= 0),
-       image_url     VARCHAR(255),
+       image_url     VARCHAR(500),
        version       BIGINT       NOT NULL DEFAULT 0,
        created_at    TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
        updated_at    TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
