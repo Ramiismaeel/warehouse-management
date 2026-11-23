@@ -11,6 +11,7 @@
 | Feature freeze | Sa 21.11.2026 |
 | Deadline / presentation | Mo 23.11.2026 |
 | Conventions for code & Claude | [`CLAUDE.md`](../CLAUDE.md) |
+| v1.1 Deployment & Login | Separate track on branch `release/v1.1`, see [section 10](#10-v11--deployment--login) |
 | All tickets in detail | [`TICKETS.md`](TICKETS.md) · Jira import: [`jira-import.csv`](jira-import.csv) |
 
 ---
@@ -242,6 +243,8 @@ Everyone pulls `main` after these are merged.
 
 ## 9. Later (prepared, not built)
 
+> PostgreSQL, Flyway, Docker, CI/CD and Security are now planned in **v1.1**, see section 10.
+
 | Topic | What's already prepared |
 |-------|-------------------------|
 | PostgreSQL | `prod` profile, PostgreSQL driver, H2 in Postgres mode, portable seed SQL, no reserved table names |
@@ -250,3 +253,69 @@ Everyone pulls `main` after these are merged.
 | Security | Versioned API under `/api/v1`, entities never exposed, central exception handling |
 | CI/CD | T07 adds the PR checks; deployment can build on it |
 | History | A stock movement table can be added inside `StockService` without touching features |
+
+---
+
+## 10. v1.1 – Deployment & Login
+
+Built by one developer on the long-lived branch `release/v1.1`, in parallel with T01–T27, without touching the
+group's tickets. One PR `release/v1.1` → `main` at the end, reviewed by a teammate.
+Tickets: [`TICKETS.md`](TICKETS.md) → *v1.1* (Jira epics WM-40 and WM-43). Workflow and rules: `CLAUDE.md` → *v1.1*.
+
+### Decisions (locked 23.11.2026)
+
+| # | Topic | Decision |
+|---|-------|----------|
+| 16 | Hosting | Render (free web services), images from Docker Hub, automated with GitHub Actions |
+| 17 | Containers | Two images: backend (Spring Boot) and frontend (nginx serving the build) |
+| 18 | Frontend → backend | nginx forwards `/api` to the backend (same origin, no CORS) |
+| 19 | Login | Spring Security session cookie, one fixed user from env vars, no registration (**on hold** until T01–T27 are done) |
+| 20 | Database | Neon Postgres, Flyway in `prod` |
+| 21 | Branching | `release/v1.1` as integration branch, PRs into it without approval, final PR into `main` with review |
+
+### Runtime
+
+```mermaid
+flowchart LR
+    U([Browser]) --> FE[Render: warehouse-frontend<br/>nginx · static build]
+    FE -->|/api/*| BE[Render: warehouse-backend<br/>Spring Boot · profile prod]
+    BE --> DB[(Neon Postgres<br/>Frankfurt)]
+```
+
+### Pipeline
+
+```mermaid
+flowchart LR
+    M[Merge PR into<br/>release/v1.1] --> GA[deploy.yml]
+    GA --> T[Backend verify<br/>Frontend lint + build]
+    T --> I[Build images<br/>latest + commit SHA]
+    I --> H[(Docker Hub)]
+    I --> R[Render deploy hooks<br/>SHA tag]
+    R --> S[Smoke test]
+```
+
+### Ticket order
+
+```mermaid
+flowchart TD
+    T30[T30 · WM-44<br/>Neon + Flyway] --> T31[T31 · WM-45<br/>Backend Dockerfile]
+    T32[T32 · WM-46<br/>Frontend Dockerfile + nginx]
+    T31 --> T33[T33 · WM-47<br/>Build & push images]
+    T32 --> T33
+    T33 --> T34[T34 · WM-48<br/>Render + auto-deploy]
+    T31 -.-> T35[T35 · WM-49<br/>docker-compose, optional]
+    T32 -.-> T35
+    subgraph HOLD[On hold until T01–T27 are done]
+        T28[T28 · WM-41<br/>BE session login] --> T29[T29 · WM-42<br/>FE login page]
+        T36[T36 · WM-50<br/>Docs]
+    end
+    T34 --> T36
+    T29 --> T36
+```
+
+### Free-tier limits
+
+- Render free services sleep after ~15 min without traffic; the first request then takes about a minute.
+  Open the app a few minutes before a demo.
+- Neon scales to zero when idle; the first connection afterwards takes a few seconds.
+- Until T28/T29 are live, the deployed app has no login. Don't share the URL.

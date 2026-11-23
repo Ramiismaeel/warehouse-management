@@ -10,6 +10,8 @@ automatically when a document is confirmed. A dashboard warns about low stock.
 
 - Team: 3 developers · Feature freeze: **21.11.2026** · Deadline: **23.11.2026**
 - Plan, decisions, diagrams: `docs/PLAN.md` · Tickets: `docs/TICKETS.md`
+- **v1.1 (Deployment & Login, WM-40 to WM-50)** is a separate track on branch `release/v1.1` with its own workflow.
+  See [v1.1 – Deployment & Login](#v11--deployment--login-branch-releasev11) before working on any of those tickets.
 
 ---
 
@@ -180,8 +182,8 @@ from `StockService` (rule 1).
   (`spring.sql.init.data-locations`, `spring.jpa.defer-datasource-initialization=true`). Data resets on restart.
 - `postgres`: local PostgreSQL, env vars with defaults (`DB_URL` → `jdbc:postgresql://localhost:5432/warehouse`,
   `DB_USER` → `postgres`), `ddl-auto=create`, seeds always run.
-- `prod` (later): PostgreSQL via env vars `DB_URL`, `DB_USER`, `DB_PASSWORD` (no defaults), `ddl-auto=validate`,
-  Flyway added when we switch.
+- `prod`: PostgreSQL via env vars `DB_URL`, `DB_USER`, `DB_PASSWORD` (no defaults), `ddl-auto=validate`.
+  Neon + Flyway are being added in v1.1 (WM-44), see the v1.1 section.
 - `test` (`src/test/resources/application-test.properties`): disables SQL init; activate with `@ActiveProfiles("test")`.
 - Hibernate creates the tables before `schema.sql` runs, so its `CREATE TABLE IF NOT EXISTS` statements are no-ops in
   `dev`/`postgres`. Still keep entities and `schema.sql` in sync — `prod` validates against the real schema.
@@ -276,6 +278,7 @@ frontend/src/
 
 - `main` is protected: PR required, ≥ 1 approval, no direct push.
 - Branch from the latest `main`: `feature/WM-<jira-number>-<short-kebab-desc>`, e.g. `feature/WM-12-article-crud`.
+  **Exception:** v1.1 tickets (WM-40 to WM-50) branch from `release/v1.1`, see the v1.1 section.
 - Commits: `WM-12: add product list page` (Jira key first, imperative, English).
 - PR title: `WM-12 Article list page`. Fill in the PR template. One ticket per PR. Screenshots for UI changes.
 - Before opening a PR: update from `main`, run the quality gates.
@@ -293,7 +296,79 @@ frontend/src/
 
 ---
 
+## v1.1 – Deployment & Login (branch `release/v1.1`)
+
+One developer builds this in parallel with the group's tickets. Details per ticket: `docs/TICKETS.md` → *v1.1*.
+
+**Workflow (overrides the Git section for WM-40 to WM-50)**
+- Branch from `release/v1.1`: `feature/WM-<n>-<desc>`. PR base is **`release/v1.1`**, never `main`. The author merges
+  (no approval needed on this branch), squash merge.
+- Sync with the group regularly: `git switch release/v1.1 && git pull && git merge origin/main && git push`.
+  Merge, never rebase.
+- **Never change the group's work.** Keep edits to shared files (`pom.xml`, `application*.properties`,
+  `.github/workflows/maven.yml`, `api/client.ts`, `router.tsx`, `AppLayout`) as small as possible and mention each one in the PR.
+- At the end: one PR `release/v1.1` → `main`, reviewed by a teammate.
+
+**Status**
+- Active: WM-44 → WM-45 → WM-46 → WM-47 → WM-48 (WM-49 optional).
+- **On hold until the group's tickets are done: WM-41, WM-42 (login/security), WM-50 (docs).** Don't add Spring
+  Security, auth endpoints or a login page before then, even if a deployment ticket seems to need it.
+
+**Decisions (team, 23.11.2026)**
+
+| Topic | Decision |
+|-------|----------|
+| Hosting | Render free web services, images from Docker Hub, deployed by GitHub Actions |
+| Containers | `warehouse-backend` (Spring Boot, Java 25) · `warehouse-frontend` (nginx serving the Vite build) |
+| Frontend → backend | nginx forwards `/api/` to the backend → same origin, no CORS (Vite proxy does the same in dev) |
+| Database | Neon Postgres (Frankfurt), schema by Flyway in `prod` only |
+| Login (on hold) | Spring Security session cookie, one fixed user from `APP_USERNAME` / `APP_PASSWORD` |
+| Deploy trigger | Push to `release/v1.1` while building; `main` after the final release PR |
+| Image tags | `latest` + commit SHA; Render always deploys the SHA tag |
+
+**Target architecture**
+
+```
+Browser → Render warehouse-frontend (nginx: static build + /api proxy)
+        → Render warehouse-backend (Spring Boot, profile prod) → Neon Postgres
+GitHub push → .github/workflows/deploy.yml → tests → Docker Hub images → Render deploy hooks
+```
+
+**Rules**
+- No secrets in the repo, in images or in workflow files. Configuration only via env vars; defaults only in
+  `application-dev.properties` / the `postgres` profile, never in `prod`.
+- The frontend calls the API only through `api/client.ts` with the relative `/api/v1`. Never hardcode a backend URL.
+- Flyway runs only in `prod` (`spring.flyway.enabled=false` everywhere else). Schema changes only through a new
+  `src/main/resources/db/migration/V<n>__<desc>.sql`; never edit a migration that has run. Keep entities,
+  `schema.sql` and migrations in sync.
+- `prod` loads no seed data (`spring.sql.init.mode=never`).
+- Dockerfiles: multi-stage, non-root runtime user, base images pinned to a major version, `.dockerignore` per app.
+- Only the actuator `health` endpoint is exposed.
+- Spring Boot 4 is modular: features like Flyway need their `spring-boot-starter-*`, not just the library.
+
+**Environment variables**
+
+| Name | Used by | Dev / local | Production (set in) |
+|------|---------|-------------|---------------------|
+| `SPRING_PROFILES_ACTIVE` | backend | `dev` (default) | `prod` (Dockerfile) |
+| `DB_URL` | backend | `postgres` profile default | Render: `jdbc:postgresql://<neon-host>/warehouse?sslmode=require` |
+| `DB_USER`, `DB_PASSWORD` | backend | `postgres` profile default | Render |
+| `PORT` | backend, frontend | 8080 / 80 | set by Render automatically |
+| `BACKEND_URL` | frontend (nginx) | `http://backend:8080` (compose) | Render: `https://warehouse-backend.onrender.com` |
+| `APP_USERNAME`, `APP_PASSWORD` | backend (on hold, WM-41) | `admin` / `admin` | Render |
+
+GitHub secrets: `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`, `RENDER_DEPLOY_HOOK_BACKEND`, `RENDER_DEPLOY_HOOK_FRONTEND`.
+
+**Commands (once the tickets are merged)**
+- `docker build -t warehouse-backend ./backend` · `docker build -t warehouse-frontend ./frontend`
+- `docker run --rm -p 8080:8080 -e DB_URL=... -e DB_USER=... -e DB_PASSWORD=... warehouse-backend`
+- `docker compose up --build` → http://localhost:8081 (WM-49)
+- Manual redeploy: GitHub → Actions → *deploy* → *Run workflow*
+
+---
+
 ## Not now (keep the door open, do not build without a team decision)
 
-Docker / docker-compose · Spring Security · PostgreSQL + Flyway · CI/CD deployment · i18n library ·
+Docker / docker-compose, PostgreSQL + Flyway and CI/CD deployment are planned in **v1.1** (section above);
+Spring Security is planned there too but **on hold**. Still not planned: i18n library ·
 server-side paging · OpenAPI → TypeScript type generation · Supplier entity · stock movement history.

@@ -6,6 +6,8 @@ summary maps a Jira ticket back to this file. Use the **Jira key** in branch nam
 Lanes: **Person 1** Artikel → Wareneingang · **Person 2** Kunden → Warenausgang · **Person 3** shared parts → Dashboard.
 Target dates are the day the PR should be merged. Weekend 14.–15.11. is buffer.
 
+**v1.1 (Deployment & Login, T28–T36):** separate track on branch `release/v1.1`, see the end of this file.
+
 ## Overview
 
 | ID | Epic | Title | Lane | Target | Depends on |
@@ -601,3 +603,272 @@ Make the project runnable for anyone and verify everything before the freeze.
 - Clean clone runs with the README steps only
 - Checklist documented in the PR
 - Quality gates green, PR reviewed by 1 teammate
+
+---
+
+# v1.1 · Deployment & Login (branch `release/v1.1`)
+
+Built by **one developer** in parallel with the group's tickets T01–T27. These tickets already exist in Jira, so
+their real keys are known and listed here. Every ticket branches from `release/v1.1` and its PR targets
+`release/v1.1`, never `main` (workflow: `CLAUDE.md` → *v1.1 – Deployment & Login*).
+
+**Status:** E10 Deployment is active. E9 Login and T36 are **on hold** until the group's tickets are done.
+
+| ID | Jira | Epic | Title | Status | Depends on |
+|----|------|------|-------|--------|------------|
+| – | WM-40 | E9 Login (v1) | Epic | On hold | – |
+| T28 | WM-41 | E9 Login (v1) | BE: Session login with fixed user | On hold | – |
+| T29 | WM-42 | E9 Login (v1) | FE: Login page & protected routes | On hold | T28 |
+| – | WM-43 | E10 Deployment | Epic | Active | – |
+| T30 | WM-44 | E10 Deployment | BE: Neon Postgres + Flyway | Active | – |
+| T31 | WM-45 | E10 Deployment | Backend Dockerfile | Active | T30 |
+| T32 | WM-46 | E10 Deployment | Frontend Dockerfile + nginx proxy | Active | – |
+| T33 | WM-47 | E10 Deployment | GitHub Actions: build & push images to Docker Hub | Active | T31, T32 |
+| T34 | WM-48 | E10 Deployment | Render services + auto-deploy | Active | T30, T33 |
+| T35 | WM-49 | E10 Deployment | docker-compose for local full stack (optional) | Active, Low | T31, T32 |
+| T36 | WM-50 | E10 Deployment | Docs: deployment, login & env vars | On hold | T34, T28, T29 |
+
+**Order:** T30 → T31 → T32 → T33 → T34 (T35 whenever it helps local testing). After the group is done:
+T28 → T29 → T36.
+
+## E9 · Login (v1) · WM-40 · on hold
+
+Protect the app with a login page. v1 has exactly **one fixed user**: no registration, no user table, no roles.
+Session cookie via Spring Security. Credentials only from env vars `APP_USERNAME` / `APP_PASSWORD`.
+Frontend and backend are same-origin (Vite proxy in dev, nginx in prod), so no CORS and no cross-site cookies.
+
+Out of scope: registration, multiple users, roles, password reset, "remember me".
+
+### T28 · BE: Session login with fixed user · WM-41
+
+**Type:** Story · **Owner:** solo (`release/v1.1`) · **Status:** On hold · **Depends on:** –
+
+Spring Security with one in-memory user. All API endpoints require login, except login itself and the health check.
+
+**Tasks**
+
+- [ ] Add `spring-boot-starter-security` (+ `spring-security-test` for tests)
+- [ ] `SecurityConfig`: `InMemoryUserDetailsManager` with one user from `app.auth.username` / `app.auth.password`
+  (env `APP_USERNAME` / `APP_PASSWORD`), password BCrypt-encoded at startup
+- [ ] `dev` profile: defaults `admin` / `admin` in `application-dev.properties`. `prod`: **no defaults**, startup must fail if missing
+- [ ] `POST /api/v1/auth/login` (JSON `{username, password}`) → 200 `{username}`, creates the session. Save the
+  security context explicitly via `HttpSessionSecurityContextRepository` (not automatic for a custom endpoint)
+- [ ] `POST /api/v1/auth/logout` → 204 · `GET /api/v1/auth/me` → 200 `{username}` or 401
+- [ ] `permitAll` for `POST /api/v1/auth/login` and `/actuator/health`; everything else under `/api/v1/**` authenticated
+- [ ] Disable `formLogin` and `httpBasic`. Unauthenticated → 401 German ProblemDetail "Bitte melden Sie sich an."
+  (no redirect, no browser popup). Wrong credentials → 401 "Benutzername oder Passwort falsch."
+- [ ] CSRF on with `CookieCsrfTokenRepository.withHttpOnlyFalse()` + SPA request handler (axios sends `X-XSRF-TOKEN` automatically)
+- [ ] Session cookie `HttpOnly`, `SameSite=Lax`, `Secure` in `prod`
+- [ ] Tests: login OK, wrong password → 401, protected endpoint without session → 401, `/me` after login → 200,
+  logout → `/me` 401. Existing controller tests get `@WithMockUser`
+- [ ] Render: add `APP_USERNAME` / `APP_PASSWORD` to `warehouse-backend`; change the deploy smoke test (T34) to expect 401 on `/api/v1/auth/me`
+
+**Acceptance criteria**
+
+- `GET /api/v1/products` without login → 401 with a German message; after login → 200 via the session cookie
+- Starting `prod` without `APP_USERNAME` / `APP_PASSWORD` fails with a clear error
+- No production credentials in the repo
+- `./mvnw verify` green
+
+Note: sessions live in memory. A Render restart or wake-up means logging in again (fine for v1).
+
+### T29 · FE: Login page & protected routes · WM-42
+
+**Type:** Story · **Owner:** solo (`release/v1.1`) · **Status:** On hold · **Depends on:** T28
+
+German login page; every other page requires login. The axios client already uses the relative `/api/v1` and Vite
+already proxies `/api`, so the session cookie works in dev without changes.
+
+**Tasks**
+
+- [ ] Route `/login`: shadcn `Card` + form, "Benutzername", "Passwort", button "Anmelden",
+  error "Benutzername oder Passwort falsch." Texts in `i18n/de/auth.ts`
+- [ ] `features/auth/`: `api.ts`, `queries.ts` (`useAuth` via `GET /auth/me`, login/logout mutations), `types.ts`, `schema.ts`
+- [ ] `ProtectedRoute` around all existing routes → redirect to `/login`, afterwards back to the requested page
+- [ ] axios response interceptor: on 401 (except `/auth/me`, `/auth/login`) clear the query cache, go to `/login`
+- [ ] `AppLayout` header: username + "Abmelden" button
+- [ ] Loading state while `/auth/me` is pending (no login-page flash)
+
+**Acceptance criteria**
+
+- Any page without a session shows the login page
+- Correct credentials → requested page; wrong ones → German error
+- "Abmelden" ends the session; the back button shows no protected data
+- Reload while logged in keeps the session
+- `npm run lint` and `npm run build` green
+
+## E10 · Deployment · WM-43 · active
+
+Every merge into the deploy branch builds Docker images for backend and frontend, pushes them to Docker Hub and
+deploys them on Render. Production data lives in Postgres on Neon.
+
+```
+Browser → Render warehouse-frontend (nginx: static build + /api proxy)
+        → Render warehouse-backend (Spring Boot, profile prod) → Neon Postgres (Frankfurt)
+```
+
+Free-tier limits: Render services sleep after ~15 min idle (first request then takes ~1 min). Neon scales to zero
+(first connection takes a few seconds). Until T28/T29 are live, the deployed app has **no login** — don't share the URL.
+
+### T30 · BE: Neon Postgres + Flyway · WM-44
+
+**Type:** Story · **Owner:** solo (`release/v1.1`) · **Depends on:** –
+
+Profile `prod` runs on Neon. Flyway creates the schema, Hibernate only validates it.
+
+**Tasks**
+
+- [ ] Neon project, region **EU Frankfurt**, database `warehouse`. Credentials only in a password manager, never in the repo
+- [ ] Dependencies: `spring-boot-starter-flyway` (Boot 4 needs the starter; `flyway-core` alone isn't auto-configured)
+  and `org.flywaydb:flyway-database-postgresql`
+- [ ] `application.properties`: `spring.flyway.enabled=false`. `application-prod.properties`: `spring.flyway.enabled=true`
+- [ ] `db/migration/V1__init.sql`, based on `schema.sql`: all 6 tables, PK/FK/unique/CHECK constraints, `version` column
+- [ ] `prod`: `ddl-auto=validate`, `spring.sql.init.mode=never` (no `schema.sql`, no seeds), datasource from the
+  existing env vars `DB_URL`, `DB_USER`, `DB_PASSWORD` (no defaults)
+- [ ] Neon shows `postgresql://user:pass@host/db?sslmode=require`. JDBC needs
+  `DB_URL=jdbc:postgresql://<host>/warehouse?sslmode=require` with user and password separate
+- [ ] Hikari in `prod`: `maximum-pool-size=5`, `connection-timeout=30000` (Neon wakes up slowly)
+- [ ] `dev` (H2) and `postgres` (local) profiles stay unchanged
+- [ ] Verify: run `prod` locally against an **empty** database (Neon or a separate local `warehouse_prod`)
+
+**Acceptance criteria**
+
+- `prod` against an empty DB creates all tables via Flyway; `validate` passes
+- Restart changes nothing (`flyway_schema_history` shows V1 once)
+- `dev` and `postgres` work exactly as before; `./mvnw verify` green
+- No credentials in the repo
+
+### T31 · Backend Dockerfile · WM-45
+
+**Type:** Story · **Owner:** solo (`release/v1.1`) · **Depends on:** T30
+
+Small, non-root backend image, configured only via env vars.
+
+**Tasks**
+
+- [ ] `backend/Dockerfile`, multi-stage. Build stage: Maven image with Temurin 25, `mvn` from the image (not
+  `./mvnw`, avoids CRLF/permission problems from Windows checkouts). Copy `pom.xml` first and resolve
+  dependencies, then `src`. `mvn -B package -DskipTests` (tests run in CI)
+- [ ] Runtime stage: `eclipse-temurin:25-jre`, only the jar, **non-root** user
+- [ ] `ENV SPRING_PROFILES_ACTIVE=prod`, `JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75"` (Render free: 512 MB)
+- [ ] `application.properties`: `server.port=${PORT:8080}` (Render sets `PORT`)
+- [ ] `spring-boot-starter-actuator`, expose only `health`
+- [ ] `backend/.dockerignore`: `target/`, `.idea/`, `*.iml`, logs
+
+**Acceptance criteria**
+
+- `docker build -t warehouse-backend ./backend` works on Windows and macOS (incl. Apple Silicon)
+- `docker run` with `DB_URL` / `DB_USER` / `DB_PASSWORD` starts; `GET /actuator/health` → `UP`
+- No credentials or source code in the image; process isn't root
+
+### T32 · Frontend Dockerfile + nginx proxy · WM-46
+
+**Type:** Story · **Owner:** solo (`release/v1.1`) · **Depends on:** –
+
+nginx serves the build and forwards `/api` to the backend, so the browser only talks to one origin.
+No frontend code changes: `api/client.ts` already uses the relative `/api/v1`.
+
+**Tasks**
+
+- [ ] `frontend/Dockerfile`, multi-stage: `node:22-alpine` (`npm ci`, `npm run build`) → official `nginx:alpine`
+- [ ] `frontend/nginx/default.conf.template` → `/etc/nginx/templates/` (the image fills env vars via envsubst):
+    - `listen ${PORT};` (Render sets `PORT`; set `ENV PORT=80` as default)
+    - SPA fallback `try_files $uri /index.html;` (reloading `/artikel/5` works)
+    - `location /api/` → `proxy_pass` to `${BACKEND_URL}` through a variable + `resolver`, so nginx doesn't cache
+      the backend IP. `ENV NGINX_ENTRYPOINT_LOCAL_RESOLVERS=1` and `resolver ${NGINX_LOCAL_RESOLVERS}` work on
+      Render and in docker-compose
+    - HTTPS backend: `proxy_ssl_server_name on;` (SNI), forward `X-Forwarded-For` / `X-Forwarded-Proto`
+    - `proxy_read_timeout 120s;` (sleeping backend wakes up in ~1 min)
+    - gzip, long cache for `/assets/*`, no cache for `index.html`
+- [ ] `frontend/.dockerignore`: `node_modules/`, `dist/`, `.env*`
+
+**Acceptance criteria**
+
+- `docker build -t warehouse-frontend ./frontend` works on Windows and macOS
+- With `BACKEND_URL` set to a running backend, all pages work through the container
+- Reloading a deep link shows the page, not a 404
+- No backend URL in the bundle (`grep -r onrender.com dist/` finds nothing)
+
+### T33 · GitHub Actions: build & push images to Docker Hub · WM-47
+
+**Type:** Story · **Owner:** solo (`release/v1.1`) · **Depends on:** T31, T32
+
+**Tasks**
+
+- [ ] Docker Hub: repos `warehouse-backend`, `warehouse-frontend`, plus an **access token** (not the password)
+- [ ] GitHub secrets: `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`
+- [ ] `.github/workflows/deploy.yml`, triggers: `push` to `release/v1.1` and `workflow_dispatch`
+  (the final release PR switches the trigger to `main`)
+    - Job `backend-test`: reuse `maven.yml` via `workflow_call` (one added trigger line there)
+    - Job `frontend-check`: `npm ci`, `npm run lint`, `npm run build`
+    - Jobs `backend-image`, `frontend-image` (`needs` both checks, parallel): `docker/setup-buildx-action`,
+      `docker/login-action`, `docker/build-push-action`, tags `latest` + `${{ github.sha }}`, cache `type=gha`
+    - `concurrency: deploy` (no two deploys at once)
+- [ ] Actions pinned to major versions, never `@master`
+
+**Acceptance criteria**
+
+- A merge into `release/v1.1` produces both images on Docker Hub (`latest` + SHA)
+- A failing test or lint stops the workflow before any push
+- PRs don't push images; no secret in the logs
+
+### T34 · Render services + auto-deploy · WM-48
+
+**Type:** Story · **Owner:** solo (`release/v1.1`) · **Depends on:** T30, T33
+
+**Tasks**
+
+- [ ] Two Render **Web Services** from "Existing image", region **Frankfurt**, free plan:
+    - `warehouse-backend` ← `docker.io/<user>/warehouse-backend:latest` · env `DB_URL`, `DB_USER`, `DB_PASSWORD` ·
+      health check `/actuator/health`
+    - `warehouse-frontend` ← `docker.io/<user>/warehouse-frontend:latest` ·
+      env `BACKEND_URL=https://warehouse-backend.onrender.com` · health check `/`
+- [ ] Render auto-deploy off; deploys come only from the workflow
+- [ ] Deploy hooks → GitHub secrets `RENDER_DEPLOY_HOOK_BACKEND`, `RENDER_DEPLOY_HOOK_FRONTEND`
+- [ ] `deploy.yml` job `deploy` (`needs` both image jobs): call backend hook, then frontend hook, each with
+  `imgURL` = the image with the **commit SHA** tag
+- [ ] Smoke test: `curl` the frontend's `/api/v1/products`, expect **200**, retry up to ~3 min (cold start).
+  After T28 this changes to `/api/v1/auth/me` → 401
+
+**Acceptance criteria**
+
+- A merged PR appears on the live URL without any manual step
+- Render shows the deployed image with the commit SHA
+- Data survives a backend restart (Neon)
+- Secrets only in Render and GitHub secrets
+
+### T35 · docker-compose for local full stack (optional) · WM-49
+
+**Type:** Task · **Owner:** solo (`release/v1.1`) · **Priority:** Low · **Depends on:** T31, T32
+
+**Tasks**
+
+- [ ] `docker-compose.yml` (repo root): `db` (`postgres:17`, named volume, `pg_isready` healthcheck), `backend`
+  (build `./backend`, profile `prod`, `DB_URL=jdbc:postgresql://db:5432/warehouse`, `depends_on` db healthy),
+  `frontend` (build `./frontend`, `BACKEND_URL=http://backend:8080`, port `8081:80`)
+- [ ] `.env.example` with all variable names and dummy values; `.env` in `.gitignore`
+
+**Acceptance criteria**
+
+- `docker compose up --build` → app at http://localhost:8081 (empty DB: `prod` loads no seeds)
+- Same on Windows (Docker Desktop) and macOS; `docker compose down -v` resets the DB
+
+### T36 · Docs: deployment, login & env vars · WM-50
+
+**Type:** Task · **Owner:** solo (`release/v1.1`) · **Status:** On hold · **Depends on:** T34, T28, T29
+
+Last v1.1 ticket. Done after the group's README (T27) is merged, to avoid conflicts.
+
+**Tasks**
+
+- [ ] README: Login (dev credentials, prod via env vars), Deployment (flow, live URL, merge triggers deploy,
+  `workflow_dispatch` for manual redeploy, cold start), env var table, Docker locally
+- [ ] `CLAUDE.md`: fold the *v1.1* section into the regular sections (auth rules, profiles, Git workflow back to
+  `main`), remove the items from *Not now*
+- [ ] `docs/PLAN.md`: mark section 10 as done
+- [ ] `deploy.yml` trigger `release/v1.1` → `main` (in the final release PR)
+
+**Acceptance criteria**
+
+- A teammate can deploy and find every variable using only the README
+- `CLAUDE.md` describes the final state, no "on hold" notes left
