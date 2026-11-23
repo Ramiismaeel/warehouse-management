@@ -772,7 +772,7 @@ No frontend code changes: `api/client.ts` already uses the relative `/api/v1`.
 
 - [ ] `frontend/Dockerfile`, multi-stage: `node:22-alpine` (`npm ci`, `npm run build`) → official `nginx:alpine`
 - [ ] `frontend/nginx/default.conf.template` → `/etc/nginx/templates/` (the image fills env vars via envsubst):
-    - `listen ${PORT};` (Render sets `PORT`; set `ENV PORT=80` as default)
+    - `listen ${PORT};` (Render sets `PORT`; set `ENV PORT=8080` as default: nginx runs as the non-root `nginx` user)
     - SPA fallback `try_files $uri /index.html;` (reloading `/artikel/5` works)
     - `location /api/` → `proxy_pass` to `${BACKEND_URL}` through a variable + `resolver`, so nginx doesn't cache
       the backend IP. `ENV NGINX_ENTRYPOINT_LOCAL_RESOLVERS=1` and `resolver ${NGINX_LOCAL_RESOLVERS}` work on
@@ -845,7 +845,7 @@ No frontend code changes: `api/client.ts` already uses the relative `/api/v1`.
 
 - [ ] `docker-compose.yml` (repo root): `db` (`postgres:17`, named volume, `pg_isready` healthcheck), `backend`
   (build `./backend`, profile `prod`, `DB_URL=jdbc:postgresql://db:5432/warehouse`, `depends_on` db healthy),
-  `frontend` (build `./frontend`, `BACKEND_URL=http://backend:8080`, port `8081:80`)
+  `frontend` (build `./frontend`, `BACKEND_URL=http://backend:8080`, port `8081:8080`)
 - [ ] `.env.example` with all variable names and dummy values; `.env` in `.gitignore`
 
 **Acceptance criteria**
