@@ -13,6 +13,30 @@ export const common = {
   actions: {
     toggleSidebar: "Seitenleiste ein-/ausblenden",
     backToDashboard: "Zum Dashboard",
+    confirm: "Bestätigen",
+    cancel: "Abbrechen",
+  },
+  table: {
+    search: "Suchen …",
+    empty: "Keine Einträge vorhanden",
+    noResults: (query: string) => `Keine Treffer für „${query}“`,
+    entries: (count: number, formatted: string) =>
+      `${formatted} ${count === 1 ? "Eintrag" : "Einträge"}`,
+    rowsPerPage: "Zeilen pro Seite",
+    pageOf: (page: string, pageCount: string) => `Seite ${page} von ${pageCount}`,
+    previousPage: "Vorherige Seite",
+    nextPage: "Nächste Seite",
+    sortBy: (column: string) => `Nach „${column}“ sortieren`,
+  },
+  documentStatus: {
+    DRAFT: "Entwurf",
+    CONFIRMED: "Bestätigt",
+    CANCELLED: "Storniert",
+  },
+  stockLevel: {
+    EMPTY: "Leer",
+    LOW: "Niedrig",
+    OK: "OK",
   },
   placeholder: {
     text: "Diese Seite wird noch umgesetzt.",
