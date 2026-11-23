@@ -44,6 +44,18 @@ export const router = createBrowserRouter([
       { path: "warenausgang/:id", element: <OutboundDetailPage /> },
       { path: "warenausgang/:id/bearbeiten", element: <OutboundEditPage /> },
 
+      // Dev only: showcase of the shared components. Vite drops this branch from production builds.
+      ...(import.meta.env.DEV
+        ? [
+            {
+              path: "dev/komponenten",
+              lazy: async () => ({
+                Component: (await import("@/dev/ComponentsDemoPage")).ComponentsDemoPage,
+              }),
+            },
+          ]
+        : []),
+
       { path: "*", element: <NotFoundPage /> },
     ],
   },

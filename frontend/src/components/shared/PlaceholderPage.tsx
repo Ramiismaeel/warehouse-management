@@ -20,7 +20,7 @@ export function PlaceholderPage({ title, description }: PlaceholderPageProps) {
         <Construction className="size-8" />
         <p className="text-sm">{t.common.placeholder.text}</p>
         {id && (
-          <p className="text-xs" >
+          <p className="text-xs">
             {t.common.placeholder.id}: {id}
           </p>
         )}
