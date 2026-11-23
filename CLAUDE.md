@@ -142,7 +142,8 @@ backend/src/main/java/training/backend/
 └─ product/        Product, ProductUnit, ProductRepository, ProductService, ProductController, ProductMapper, dto/
 backend/src/main/resources/
 ├─ application.properties · application-{dev,postgres,prod}.properties
-├─ schema.sql      hand-written DDL (CHECK + unique constraints)
+├─ schema.sql      hand-written DDL (CHECK + unique constraints), used by `dev`/`postgres`
+├─ db/migration/   Flyway migrations, `prod` only (V1__init.sql = schema.sql without IF NOT EXISTS)
 └─ data/           01-products.sql, 02-customers.sql, 03-inbound-deliveries.sql, 04-outbound-orders.sql
                    (number prefix = load order, FKs depend on it)
 backend/src/test/java/training/backend/   mirrors main
@@ -181,14 +182,15 @@ from `StockService` (rule 1).
 - `dev` (default): H2 in-memory, PostgreSQL mode, `ddl-auto=create-drop`, seeds from `data/*.sql`
   (`spring.sql.init.data-locations`, `spring.jpa.defer-datasource-initialization=true`). Data resets on restart.
 - `postgres`: local PostgreSQL, env vars with defaults (`DB_URL` → `jdbc:postgresql://localhost:5432/warehouse`,
-  `DB_USER` → `postgres`), `ddl-auto=create`, seeds always run.
-- `prod`: PostgreSQL via env vars `DB_URL`, `DB_USER`, `DB_PASSWORD` (no defaults), `ddl-auto=validate`.
-  Neon + Flyway are being added in v1.1 (WM-44), see the v1.1 section.
+  `DB_USER` → `postgres`), `schema.sql` creates the tables (`spring.sql.init.mode=always`), `ddl-auto=validate`.
+- `prod`: PostgreSQL on Neon via env vars `DB_URL`, `DB_USER`, `DB_PASSWORD` (no defaults). Flyway creates the schema
+  from `db/migration/V<n>__*.sql`, `ddl-auto=validate`, `spring.sql.init.mode=never` (no `schema.sql`, no seeds),
+  Hikari pool 5 / 30 s connection timeout (Neon wakes up slowly).
 - `test` (`src/test/resources/application-test.properties`): disables SQL init; activate with `@ActiveProfiles("test")`.
 - Hibernate creates the tables before `schema.sql` runs, so its `CREATE TABLE IF NOT EXISTS` statements are no-ops in
-  `dev`/`postgres`. Still keep entities and `schema.sql` in sync — `prod` validates against the real schema.
+  `dev`. Keep entities, `schema.sql` and the Flyway migrations in sync — `postgres` and `prod` validate against them.
 - Shared settings (`application.properties`): `open-in-view=false`, default profile `dev`, CORS origin
-  `http://localhost:5173`.
+  `http://localhost:5173`, `spring.flyway.enabled=false` (only `prod` turns it on).
 - **Portability rules for seed SQL:** standard SQL only, explicit column lists, **no explicit IDs** in INSERTs
   (identity sequences would collide), reference foreign keys via subselects (`(SELECT id FROM product WHERE sku = 'A-1001')`).
 - Configuration via env vars with defaults (`${DB_URL:...}`). No secrets in the repo.
