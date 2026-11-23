@@ -21,4 +21,8 @@ public interface OutboundOrderRepository extends JpaRepository<OutboundOrder, Lo
 
     @EntityGraph(attributePaths = {"customer", "items", "items.product"})
     Optional<OutboundOrder> findWithItemsById(Long id);
+
+    long countByStatus(DocumentStatus status);
+
+    List<OutboundOrder> findTop5ByOrderByCreatedAtDescIdDesc();
 }

@@ -22,4 +22,8 @@ public interface InboundDeliveryRepository extends JpaRepository<InboundDelivery
     @EntityGraph(attributePaths = {"items", "items.product"})
     Optional<InboundDelivery> findWithItemsById(Long id);
 
+    long countByStatus(DocumentStatus status);
+
+    List<InboundDelivery> findTop5ByOrderByCreatedAtDescIdDesc();
+
 }
