@@ -355,7 +355,7 @@ GitHub push → .github/workflows/deploy.yml → tests → Docker Hub images →
 | `SPRING_PROFILES_ACTIVE` | backend | `dev` (default) | `prod` (Dockerfile) |
 | `DB_URL` | backend | `postgres` profile default | Render: `jdbc:postgresql://<neon-host>/warehouse?sslmode=require` |
 | `DB_USER`, `DB_PASSWORD` | backend | `postgres` profile default | Render |
-| `PORT` | backend, frontend | 8080 / 80 | set by Render automatically |
+| `PORT` | backend, frontend | 8080 / 8080 | set by Render automatically |
 | `BACKEND_URL` | frontend (nginx) | `http://backend:8080` (compose) | Render: `https://warehouse-backend.onrender.com` |
 | `APP_USERNAME`, `APP_PASSWORD` | backend (on hold, WM-41) | `admin` / `admin` | Render |
 

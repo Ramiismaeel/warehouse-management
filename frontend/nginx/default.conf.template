@@ -1,0 +1,61 @@
+# Rendered by the nginx image at startup (envsubst into /etc/nginx/conf.d/default.conf).
+# Only environment variables are replaced: ${PORT}, ${BACKEND_URL}, ${NGINX_LOCAL_RESOLVERS}.
+# nginx's own variables ($uri, $scheme, ...) stay as they are.
+
+# Render's edge terminates TLS in front of nginx: keep its X-Forwarded-Proto, fall back to our own scheme.
+map $http_x_forwarded_proto $forwarded_proto {
+    default $http_x_forwarded_proto;
+    ""      $scheme;
+}
+
+server {
+    listen ${PORT};
+    server_name _;
+    server_tokens off;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    gzip on;
+    gzip_vary on;
+    gzip_comp_level 6;
+    gzip_min_length 1024;
+    gzip_types text/plain text/css application/javascript application/json image/svg+xml;
+
+    # proxy_pass uses a variable, so nginx resolves the backend host per request (valid=30s)
+    # instead of caching its IP from startup.
+    resolver ${NGINX_LOCAL_RESOLVERS} valid=30s ipv6=off;
+
+    location /api/ {
+        set $backend ${BACKEND_URL};
+        # No path after the host: the request path (/api/v1/...) is forwarded unchanged.
+        proxy_pass $backend;
+        proxy_http_version 1.1;
+
+        # HTTPS backend (Render): send SNI. The Host header defaults to the backend's host.
+        proxy_ssl_server_name on;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $forwarded_proto;
+        # Same origin for the browser: drop Origin so Spring doesn't run a CORS check (same as the Vite proxy).
+        proxy_set_header Origin "";
+
+        # A sleeping Render backend needs ~1 min to wake up.
+        proxy_read_timeout 120s;
+    }
+
+    # Vite's hashed bundles: the file name changes with the content, so cache them for a year.
+    location /assets/ {
+        add_header Cache-Control "public, max-age=31536000, immutable";
+        try_files $uri =404;
+    }
+
+    # Always revalidate index.html, so a new deploy is picked up right away.
+    location = /index.html {
+        add_header Cache-Control "no-cache";
+    }
+
+    # SPA fallback: deep links like /artikel/5 are handled by React Router.
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}
