@@ -12,8 +12,13 @@ export default defineConfig({
   server: {
     proxy: {
       "/api": {
-        target: "http://localhost:3000",
+        target: "http://localhost:8080",
         changeOrigin: true,
+        // Proxied requests are same-origin for the browser. Dropping Origin stops Spring from running a
+        // CORS check against the dev server's port (e.g. 5174 or 127.0.0.1 → 403 "Invalid CORS request").
+        configure: (proxy) => {
+          proxy.on("proxyReq", (proxyReq) => proxyReq.removeHeader("origin"))
+        },
       },
     },
   },

@@ -64,15 +64,13 @@ Backend (`cd backend`, on Windows use `mvnw.cmd`):
 - H2 console (dev): http://localhost:8080/h2-console · JDBC URL `jdbc:h2:mem:warehouse` · user `sa` · no password
 
 Frontend (`cd frontend`):
-- `npm install` · `npm run dev` → http://localhost:5173 (Vite proxies `/api`, see known issue below)
+- `npm install` · `npm run dev` → http://localhost:5173 (Vite proxies `/api` to the backend on `8080`)
 - `npm run lint` · `npm run build` (`tsc -b && vite build`) · `npm run format` · `npm run format:check`
 - Add a shadcn component: `npx shadcn@latest add <name>` (style `radix-luma`, alias `@/` → `src/`)
 
 **Quality gates (must be green before a PR):** backend `./mvnw verify` · frontend `npm run lint` and `npm run build`.
 **CI:** GitHub Actions (`.github/workflows/maven.yml`) runs `mvn -B verify` on every push and PR — backend only,
 frontend gates must be run locally.
-
-**Known issue:** `frontend/vite.config.ts` proxies `/api` to `http://localhost:3000`, but the backend runs on `8080`.
 
 ---
 
