@@ -5,7 +5,7 @@ import training.backend.document.DocumentStatus;
 
 import java.time.LocalDate;
 
-public record SummaryResponse(
+public record InboundDeliverySummaryResponse(
         Long id,
         String number,
         String supplierName,

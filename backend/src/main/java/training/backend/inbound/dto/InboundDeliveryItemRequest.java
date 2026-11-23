@@ -3,7 +3,7 @@ package training.backend.inbound.dto;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 
-public record DeliveryItemRequest(
+public record InboundDeliveryItemRequest(
         @NotNull
         Long productId,
         @NotNull

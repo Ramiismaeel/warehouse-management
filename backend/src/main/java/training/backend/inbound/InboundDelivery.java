@@ -3,7 +3,6 @@ package training.backend.inbound;
 
 import jakarta.persistence.*;
 import lombok.*;
-import training.backend.document.DocumentNumberGenerator;
 import training.backend.document.DocumentStatus;
 import training.backend.entities.BaseEntity;
 import training.backend.product.Product;

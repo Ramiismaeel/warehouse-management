@@ -8,9 +8,9 @@ import training.backend.document.DocumentNumberGenerator;
 import training.backend.document.DocumentStatus;
 import training.backend.exceptions.InvalidStatusTransitionException;
 import training.backend.exceptions.NotFoundException;
-import training.backend.inbound.dto.DetailResponse;
+import training.backend.inbound.dto.InboundDeliveryDetailResponse;
 import training.backend.inbound.dto.InboundDeliveryRequest;
-import training.backend.inbound.dto.SummaryResponse;
+import training.backend.inbound.dto.InboundDeliverySummaryResponse;
 import training.backend.product.Product;
 import training.backend.product.ProductRepository;
 import training.backend.stock.StockChange;
@@ -32,7 +32,7 @@ public class InboundDeliveryService {
 
 
     @Transactional(readOnly = true)
-    public List<SummaryResponse> getAll(DocumentStatus status) {
+    public List<InboundDeliverySummaryResponse> getAll(DocumentStatus status) {
         List<InboundDelivery> deliveries = status == null
                 ? inboundDeliveryRepository.findAll()
                 : inboundDeliveryRepository.findAllByStatus(status);
@@ -43,12 +43,12 @@ public class InboundDeliveryService {
     }
 
     @Transactional(readOnly = true)
-    public DetailResponse getById(Long id) {
+    public InboundDeliveryDetailResponse getById(Long id) {
         return inboundDeliveryMapper.toDetailResponse(findById(id));
     }
 
     @Transactional
-    public DetailResponse create(InboundDeliveryRequest request) {
+    public InboundDeliveryDetailResponse create(InboundDeliveryRequest request) {
 
         InboundDelivery delivery = new InboundDelivery();
         delivery.setSupplierName(request.supplierName());
@@ -65,11 +65,11 @@ public class InboundDeliveryService {
     }
 
     @Transactional
-    public DetailResponse update(Long id, InboundDeliveryRequest request) {
+    public InboundDeliveryDetailResponse update(Long id, InboundDeliveryRequest request) {
         InboundDelivery delivery = findById(id);
 
         if(!delivery.getStatus().canEdit()) {
-            throw new InvalidStatusTransitionException("Cannot edit inbound delivery with status: " , delivery.getStatus());
+            throw new InvalidStatusTransitionException("Bearbeiten", delivery.getStatus());
         }
         delivery.setSupplierName(request.supplierName());
         delivery.setDeliveryDate(request.deliveryDate() != null ? request.deliveryDate() : LocalDate.now());
@@ -81,10 +81,11 @@ public class InboundDeliveryService {
         return inboundDeliveryMapper.toDetailResponse(delivery);
     }
 
+    @Transactional
     public void delete(Long id) {
         InboundDelivery delivery = findById(id);
         if(!delivery.getStatus().canEdit()) {
-            throw new InvalidStatusTransitionException("Cannot delete inbound delivery with status: " , delivery.getStatus());
+            throw new InvalidStatusTransitionException("Löschen", delivery.getStatus());
         }
         inboundDeliveryRepository.delete(delivery);
     }
@@ -92,7 +93,7 @@ public class InboundDeliveryService {
 
     /** DRAFT -> CONFIRMED and stock + for every item, in one transaction (business rule 4). */
     @Transactional
-    public DetailResponse confirm(Long id) {
+    public InboundDeliveryDetailResponse confirm(Long id) {
         InboundDelivery delivery = findById(id);
         if (!delivery.getStatus().canConfirm()) {
             throw new InvalidStatusTransitionException("Bestätigen", delivery.getStatus());
@@ -107,7 +108,7 @@ public class InboundDeliveryService {
      * If goods were already shipped, StockService rejects the whole cancel with all shortages (rule 3).
      */
     @Transactional
-    public DetailResponse cancel(Long id) {
+    public InboundDeliveryDetailResponse cancel(Long id) {
         InboundDelivery delivery = findById(id);
         if (!delivery.getStatus().canCancel()) {
             throw new InvalidStatusTransitionException("Stornieren", delivery.getStatus());
@@ -124,12 +125,12 @@ public class InboundDeliveryService {
     }
 
     private Product loadProduct(Long productId) {
-        return productRepository.findById(productId).orElseThrow( () -> new NotFoundException("Product not found with id: ", productId));
+        return productRepository.findById(productId).orElseThrow( () -> new NotFoundException("Artikel", productId));
     }
 
 
     private InboundDelivery findById(Long id) {
         return inboundDeliveryRepository.findWithItemsById(id)
-                .orElseThrow(() -> new NotFoundException("Inbound delivery not found with id: " , id));
+                .orElseThrow(() -> new NotFoundException("Wareneingang", id));
     }
 }

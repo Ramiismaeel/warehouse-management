@@ -20,6 +20,6 @@ public record InboundDeliveryRequest(
         String note,
 
         @NotEmpty
-        List<@Valid DeliveryItemRequest> items
+        List<@Valid InboundDeliveryItemRequest> items
 ) {
 }
