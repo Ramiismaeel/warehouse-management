@@ -1,5 +1,7 @@
-/** Mirrors backend enum ProductUnit. */
-export type ProductUnit = "PIECE" | "KILOGRAM" | "LITER" | "METER" | "BOX"
+/** Mirrors backend enum ProductUnit, in the order the form's select shows them. */
+export const PRODUCT_UNITS = ["PIECE", "KILOGRAM", "LITER", "METER", "BOX"] as const
+
+export type ProductUnit = (typeof PRODUCT_UNITS)[number]
 
 /** Mirrors backend ProductResponse. */
 export interface Product {
@@ -20,4 +22,15 @@ export interface Product {
   createdAt: string
   /** ISO timestamp. */
   updatedAt: string
+}
+
+/** Mirrors backend ProductRequest (create and update). Never contains quantity (business rule 1). */
+export interface ProductRequest {
+  /** The backend trims it and stores it in upper case. */
+  sku: string
+  name: string
+  description: string | null
+  unit: ProductUnit
+  minQuantity: number
+  imageUrl: string | null
 }

@@ -1,6 +1,13 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query"
 
-import { deleteProduct, fetchProducts } from "@/features/products/api"
+import {
+  createProduct,
+  deleteProduct,
+  fetchProduct,
+  fetchProducts,
+  updateProduct,
+} from "@/features/products/api"
+import type { Product, ProductRequest } from "@/features/products/types"
 
 export const productKeys = {
   all: ["products"] as const,
@@ -17,6 +24,34 @@ export function useProducts() {
   })
 }
 
+/** One product. Doesn't fetch for an invalid id (e.g. /artikel/abc/bearbeiten). */
+export function useProduct(id: number) {
+  return useQuery({
+    queryKey: productKeys.detail(id),
+    queryFn: () => fetchProduct(id),
+    enabled: isValidProductId(id),
+  })
+}
+
+export function useCreateProduct() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: createProduct,
+    onSuccess: (product) => storeSavedProduct(queryClient, product),
+  })
+}
+
+export function useUpdateProduct() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ id, request }: { id: number; request: ProductRequest }) =>
+      updateProduct(id, request),
+    onSuccess: (product) => storeSavedProduct(queryClient, product),
+  })
+}
+
 export function useDeleteProduct() {
   const queryClient = useQueryClient()
 
@@ -29,4 +64,14 @@ export function useDeleteProduct() {
       return queryClient.invalidateQueries({ queryKey: productKeys.lists() })
     },
   })
+}
+
+export function isValidProductId(id: number): boolean {
+  return Number.isInteger(id) && id > 0
+}
+
+/** Caches the saved product for its edit page and marks the list as outdated. */
+function storeSavedProduct(queryClient: QueryClient, product: Product) {
+  queryClient.setQueryData(productKeys.detail(product.id), product)
+  return queryClient.invalidateQueries({ queryKey: productKeys.lists() })
 }
