@@ -1,0 +1,42 @@
+name: sonar-frontend
+
+on:
+  push:
+    branches:
+      - main
+      - release/v1.1
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/sonar-frontend.yml'
+
+jobs:
+  sonar:
+    name: Analyze frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history for better analysis
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@59202af334b4ba7b5db01b701b8e79f8b3bef0f4 # v8.5.0
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          projectBaseDir: frontend
+          args: >
+            -Dsonar.organization=ramiismaeel
+            -Dsonar.projectKey=ramiismaeel_warehouse-management_frontend
+            -Dsonar.sources=src
+            -Dsonar.exclusions=src/components/ui/**
+            -Dsonar.coverage.exclusions=**/*

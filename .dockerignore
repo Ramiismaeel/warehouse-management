@@ -1,0 +1,3 @@
+# The Dockerfile only needs the built jar: keep the rest of the repo (node_modules, sources, .git) out of the build context.
+*
+!backend-target/app.jar

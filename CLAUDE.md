@@ -10,6 +10,8 @@ automatically when a document is confirmed. A dashboard warns about low stock.
 
 - Team: 3 developers · Feature freeze: **21.11.2026** · Deadline: **23.11.2026**
 - Plan, decisions, diagrams: `docs/PLAN.md` · Tickets: `docs/TICKETS.md`
+- **v1.1 (Deployment & Login, WM-40 to WM-50)** is a separate track on branch `release/v1.1` with its own workflow.
+  See [v1.1 – Deployment & Login](#v11--deployment--login-branch-releasev11) before working on any of those tickets.
 
 ---
 
@@ -180,8 +182,8 @@ from `StockService` (rule 1).
   (`spring.sql.init.data-locations`, `spring.jpa.defer-datasource-initialization=true`). Data resets on restart.
 - `postgres`: local PostgreSQL, env vars with defaults (`DB_URL` → `jdbc:postgresql://localhost:5432/warehouse`,
   `DB_USER` → `postgres`), `ddl-auto=create`, seeds always run.
-- `prod` (later): PostgreSQL via env vars `DB_URL`, `DB_USER`, `DB_PASSWORD` (no defaults), `ddl-auto=validate`,
-  Flyway added when we switch.
+- `prod`: PostgreSQL on Neon via env vars `DB_URL`, `DB_USER`, `DB_PASSWORD` (no defaults), schema by Flyway
+  (`db/migration`), `ddl-auto=validate`, no seed data. Details in the v1.1 section.
 - `test` (`src/test/resources/application-test.properties`): disables SQL init; activate with `@ActiveProfiles("test")`.
 - Hibernate creates the tables before `schema.sql` runs, so its `CREATE TABLE IF NOT EXISTS` statements are no-ops in
   `dev`/`postgres`. Still keep entities and `schema.sql` in sync — `prod` validates against the real schema.
@@ -276,6 +278,7 @@ frontend/src/
 
 - `main` is protected: PR required, ≥ 1 approval, no direct push.
 - Branch from the latest `main`: `feature/WM-<jira-number>-<short-kebab-desc>`, e.g. `feature/WM-12-article-crud`.
+  **Exception:** v1.1 tickets (WM-40 to WM-50) branch from `release/v1.1`, see the v1.1 section.
 - Commits: `WM-12: add product list page` (Jira key first, imperative, English).
 - PR title: `WM-12 Article list page`. Fill in the PR template. One ticket per PR. Screenshots for UI changes.
 - Before opening a PR: update from `main`, run the quality gates.
@@ -293,7 +296,88 @@ frontend/src/
 
 ---
 
+## v1.1 – Deployment & Login (branch `release/v1.1`)
+
+One developer builds this in parallel with the group's tickets. Details per ticket: `docs/TICKETS.md` → *v1.1*.
+
+**Workflow (overrides the Git section for WM-40 to WM-50)**
+- Branch from `release/v1.1`: `feature/WM-<n>-<desc>`. PR base is **`release/v1.1`**, never `main`. The author merges
+  (no approval needed on this branch), squash merge.
+- Sync with the group regularly: `git switch release/v1.1 && git pull && git merge origin/main && git push`.
+  Merge, never rebase.
+- **Never change the group's work.** Keep edits to shared files (`pom.xml`, `application*.properties`, `.gitignore`,
+  `api/client.ts`, `router.tsx`, `AppLayout`) as small as possible and mention each one in the PR.
+- At the end: one PR `release/v1.1` → `main`, reviewed by a teammate.
+
+**Status**
+- Done: WM-44 (Neon + Flyway). Active: **WM-45** (the whole deployment in one ticket).
+- WM-46 to WM-49 are obsolete (merged into WM-45). Don't build nginx, a frontend Dockerfile, docker-compose or a
+  second Render service.
+- **On hold until the group's tickets are done: WM-41, WM-42 (login/security), WM-50 (docs).** Don't add Spring
+  Security, auth endpoints or a login page before then.
+
+**Decisions (team)**
+
+| Topic | Decision |
+|-------|----------|
+| Approach (24.11.) | Like the Spring Boot course: the React build goes into Spring Boot's `static` folder → **one jar, one Docker image, one Render service** |
+| Hosting | Render free web service, image from Docker Hub, deployed by GitHub Actions + Render deploy hook |
+| Frontend → backend | Same origin (Spring Boot serves both). No CORS, no nginx. The Vite proxy does the same in dev |
+| Database | Neon Postgres (Frankfurt), schema by Flyway in `prod` only |
+| Login (on hold) | Spring Security session cookie, one fixed user from `APP_USERNAME` / `APP_PASSWORD` |
+| Deploy trigger | Push to `release/v1.1` while building; `main` after the final release PR |
+
+**Target architecture**
+
+```
+Browser → Render web service (Spring Boot, profile prod: React files + /api/v1) → Neon Postgres
+GitHub push → .github/workflows/deploy.yml: build frontend → build backend (frontend copied into static/)
+            → Dockerfile (repo root) → Docker Hub → Render deploy hook
+```
+
+**Files this adds**
+- `Dockerfile` in the repo root: `eclipse-temurin:25-jre`, copies `backend-target/app.jar`
+- `.github/workflows/deploy.yml`: jobs `build-frontend` → `build-backend` → `push-to-docker-hub` → `deploy`
+- `backend/.../config/SpaConfig`: serves `static/`, unknown non-API paths fall back to `index.html`
+- `pom.xml`: `<finalName>app</finalName>` → the jar is always `app.jar`
+
+**Rules**
+- No secrets in the repo, in the image or in workflow files. Configuration only via env vars; defaults only in
+  `application-dev.properties` / the `postgres` profile, never in `prod`.
+- `backend/src/main/resources/static/` and `backend-target/` are build output: never commit them. The frontend
+  source of truth stays in `frontend/`.
+- The frontend calls the API only through `api/client.ts` with the relative `/api/v1`. Never hardcode a backend URL.
+- API paths stay under `/api/`, so the SPA fallback never swallows them.
+- Flyway runs only in `prod` (`spring.flyway.enabled=false` everywhere else). Schema changes only through a new
+  `src/main/resources/db/migration/V<n>__<desc>.sql`; never edit a migration that has run. Keep entities,
+  `schema.sql` and migrations in sync.
+- `prod` loads no seed data (`spring.sql.init.mode=never`).
+- Spring Boot 4 is modular: features like Flyway need their `spring-boot-starter-*`, not just the library.
+- Java version is **25** everywhere (Dockerfile, workflow, `pom.xml`).
+
+**Environment variables**
+
+| Name | Dev / local | Production (set in) |
+|------|-------------|---------------------|
+| `SPRING_PROFILES_ACTIVE` | `dev` (default) | Render: `prod` |
+| `DB_URL` | `postgres` profile default | Render: `jdbc:postgresql://<neon-host>/warehouse?sslmode=require&channelBinding=require` |
+| `DB_USER`, `DB_PASSWORD` | `postgres` profile default | Render |
+| `PORT` | 8080 | set by Render |
+| `APP_USERNAME`, `APP_PASSWORD` (on hold, WM-41) | `admin` / `admin` | Render |
+
+GitHub secrets: `DOCKERHUB_USERNAME`, `DOCKERHUB_PASSWORD` (Docker Hub access token), `DOCKERHUB_TAG`
+(e.g. `<user>/warehouse-management:latest`), `RENDER_DEPLOY_HOOK`.
+
+**Commands**
+- Run `prod` locally against Neon: set `DB_URL`, `DB_USER`, `DB_PASSWORD` in the terminal, then
+  `./mvnw spring-boot:run -Dspring-boot.run.profiles=prod` (PowerShell: quote the `-D` argument)
+- Build the image locally: see "Local test" under T31 in `docs/TICKETS.md`
+- Manual redeploy: GitHub → Actions → *deploy* → *Run workflow*
+
+---
+
 ## Not now (keep the door open, do not build without a team decision)
 
-Docker / docker-compose · Spring Security · PostgreSQL + Flyway · CI/CD deployment · i18n library ·
+Docker, PostgreSQL + Flyway and CI/CD deployment are part of **v1.1** (section above);
+Spring Security is planned there too but **on hold**. Still not planned: i18n library ·
 server-side paging · OpenAPI → TypeScript type generation · Supplier entity · stock movement history.

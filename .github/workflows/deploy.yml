@@ -1,0 +1,99 @@
+# Builds the frontend, puts it into the Spring Boot jar, pushes one Docker image and redeploys Render.
+# Secrets: DOCKERHUB_USERNAME, DOCKERHUB_PASSWORD (Docker Hub access token), DOCKERHUB_TAG, RENDER_DEPLOY_HOOK.
+name: deploy
+
+on:
+  push:
+    branches: [release/v1.1] # switched to main in the final release PR (WM-50)
+  workflow_dispatch:
+
+# Never run two deploys at once; a newer push waits for the running one.
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build-frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build
+          path: frontend/dist
+          if-no-files-found: error
+
+  build-backend:
+    needs: build-frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Put the frontend build into Spring Boot's static folder
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-build
+          path: backend/src/main/resources/static
+
+      - uses: actions/setup-java@v5
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Build jar (runs the tests)
+        run: mvn -B package --file backend/pom.xml
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-jar
+          path: backend/target/app.jar
+          if-no-files-found: error
+
+  push-to-docker-hub:
+    needs: build-backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: app-jar
+          path: backend-target
+
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ secrets.DOCKERHUB_TAG }}
+
+  deploy:
+    needs: push-to-docker-hub
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Render deploy hook
+        env:
+          RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+        run: curl -fsS -X POST "$RENDER_DEPLOY_HOOK" > /dev/null
