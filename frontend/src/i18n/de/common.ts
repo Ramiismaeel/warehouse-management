@@ -30,6 +30,9 @@ export const common = {
     nextPage: "Nächste Seite",
     sortBy: (column: string) => `Nach „${column}“ sortieren`,
   },
+  datePicker: {
+    placeholder: "Datum wählen",
+  },
   documentStatus: {
     DRAFT: "Entwurf",
     CONFIRMED: "Bestätigt",

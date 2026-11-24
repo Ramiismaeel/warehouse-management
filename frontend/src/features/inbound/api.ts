@@ -1,5 +1,9 @@
 import { apiClient } from "@/api/client"
-import type { InboundDeliveryDetail, InboundDeliverySummary } from "@/features/inbound/types"
+import type {
+  InboundDeliveryDetail,
+  InboundDeliveryRequest,
+  InboundDeliverySummary,
+} from "@/features/inbound/types"
 
 const BASE = "/inbound-deliveries"
 
@@ -12,6 +16,23 @@ export async function fetchInboundDeliveries(): Promise<InboundDeliverySummary[]
 /** 404 when no Wareneingang has this id. */
 export async function fetchInboundDelivery(id: number): Promise<InboundDeliveryDetail> {
   const { data } = await apiClient.get<InboundDeliveryDetail>(`${BASE}/${id}`)
+  return data
+}
+
+/** Creates a draft (no stock effect). 400 with `errors` on invalid fields, 404 for an unknown product. */
+export async function createInboundDelivery(
+  request: InboundDeliveryRequest,
+): Promise<InboundDeliveryDetail> {
+  const { data } = await apiClient.post<InboundDeliveryDetail>(BASE, request)
+  return data
+}
+
+/** Replaces a draft's data and items. Same errors as create, plus 409 when it is no longer a draft. */
+export async function updateInboundDelivery(
+  id: number,
+  request: InboundDeliveryRequest,
+): Promise<InboundDeliveryDetail> {
+  const { data } = await apiClient.put<InboundDeliveryDetail>(`${BASE}/${id}`, request)
   return data
 }
 

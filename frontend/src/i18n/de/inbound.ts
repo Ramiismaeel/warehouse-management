@@ -31,7 +31,33 @@ export const inbound = {
   },
   edit: {
     title: "Wareneingang bearbeiten",
+    titleNumbered: (number: string) => `Wareneingang ${number} bearbeiten`,
     description: "Einen Entwurf ändern",
+    notDraft: "Nur Entwürfe können bearbeitet werden",
+    notDraftDescription: (status: string) =>
+      `Dieser Wareneingang ist „${status}“ und kann nicht mehr geändert werden.`,
+    backToDetail: "Zum Wareneingang",
+  },
+  form: {
+    header: "Kopfdaten",
+    items: "Artikelzeilen",
+    itemsDescription: "Welche Artikel in welcher Menge geliefert wurden.",
+    supplierName: "Lieferant",
+    supplierNamePlaceholder: "z. B. Schmidt Befestigungstechnik KG",
+    deliveryDate: "Lieferdatum",
+    note: "Notiz",
+    notePlaceholder: "Optional, z. B. Lieferschein-Nr. oder Hinweise",
+    draftHint: "Wird als Entwurf gespeichert. Der Bestand ändert sich erst beim Bestätigen.",
+  },
+  validation: {
+    supplierNameRequired: "Bitte einen Lieferanten angeben.",
+    supplierNameMax: "Der Lieferant darf höchstens 255 Zeichen lang sein.",
+    deliveryDateRequired: "Bitte ein Lieferdatum wählen.",
+    noteMax: "Die Notiz darf höchstens 255 Zeichen lang sein.",
+  },
+  saved: {
+    created: (number: string) => `Wareneingang ${number} wurde als Entwurf angelegt.`,
+    updated: (number: string) => `Wareneingang ${number} wurde gespeichert.`,
   },
   actions: {
     create: "Neuer Wareneingang",

@@ -1,3 +1,5 @@
+import { format, isValid } from "date-fns"
+
 const LOCALE = "de-DE"
 
 const dateFormatter = new Intl.DateTimeFormat(LOCALE, {
@@ -29,6 +31,20 @@ export function formatNumber(value: number, options?: Intl.NumberFormatOptions):
   return options
     ? new Intl.NumberFormat(LOCALE, options).format(value)
     : numberFormatter.format(value)
+}
+
+/** A local date as the backend's ISO date (LocalDate), e.g. 12 Nov 2026 → "2026-11-12". */
+export function toIsoDate(date: Date): string {
+  return format(date, "yyyy-MM-dd")
+}
+
+/** Parses an ISO date ("2026-11-12") as a local date. Returns undefined for "" or an invalid value. */
+export function parseIsoDate(value: string): Date | undefined {
+  if (!ISO_DATE.test(value)) {
+    return undefined
+  }
+  const date = parseDate(value)
+  return isValid(date) ? date : undefined
 }
 
 /**
