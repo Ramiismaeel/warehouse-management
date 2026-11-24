@@ -2,9 +2,12 @@
  * DEV ONLY (route /dev/komponenten, not in production builds): shows every shared component with mock data.
  * Not user-facing, so its texts are inline instead of in i18n/de.
  */
+import { zodResolver } from "@hookform/resolvers/zod"
 import { PackageOpen, Plus } from "lucide-react"
 import { useState, type ReactNode } from "react"
+import { FormProvider, useForm } from "react-hook-form"
 import { toast } from "sonner"
+import { z } from "zod"
 
 import { PageHeader } from "@/components/layout/PageHeader"
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
@@ -16,6 +19,18 @@ import { StatusBadge } from "@/components/shared/StatusBadge"
 import { StockBadge } from "@/components/shared/StockBadge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { DocumentActions } from "@/features/documents/components/DocumentActions"
+import { DocumentItemsEditor } from "@/features/documents/components/DocumentItemsEditor"
+import {
+  documentItemsSchema,
+  EMPTY_DOCUMENT_ITEM,
+  type DocumentItemsFormValues,
+} from "@/features/documents/schema"
+import type {
+  DocumentItemRequest,
+  DocumentStatus,
+  StockDirection,
+} from "@/features/documents/types"
 import { useApiErrorToast } from "@/hooks/use-api-error-toast"
 import { ApiError } from "@/lib/errors"
 import { formatNumber } from "@/lib/format"
@@ -235,7 +250,125 @@ export function ComponentsDemoPage() {
           </Button>
         </div>
       </Section>
+
+      <Section title="DocumentItemsEditor + ProductPicker (echte Artikel aus der API)">
+        <DocumentItemsDemo />
+      </Section>
+
+      <Section title="DocumentActions">
+        <DocumentActionsDemo />
+      </Section>
     </>
+  )
+}
+
+const demoDocumentSchema = z.object({ items: documentItemsSchema })
+
+/** A minimal document form: just the positions. "Prüfen" validates and shows the request body. */
+function DocumentItemsDemo() {
+  const [showAvailableStock, setShowAvailableStock] = useState(true)
+  const form = useForm<DocumentItemsFormValues, unknown, { items: DocumentItemRequest[] }>({
+    resolver: zodResolver(demoDocumentSchema),
+    defaultValues: { items: [EMPTY_DOCUMENT_ITEM] },
+  })
+
+  return (
+    <FormProvider {...form}>
+      <form
+        noValidate
+        className="flex flex-col gap-4"
+        onSubmit={form.handleSubmit(({ items }) =>
+          toast.success("Positionen gültig", { description: JSON.stringify(items) }),
+        )}
+      >
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="self-start"
+          onClick={() => setShowAvailableStock((value) => !value)}
+        >
+          showAvailableStock: {String(showAvailableStock)}
+        </Button>
+        <DocumentItemsEditor showAvailableStock={showAvailableStock} />
+        <div className="flex gap-2">
+          <Button type="submit">Prüfen</Button>
+          <Button type="button" variant="ghost" onClick={() => form.reset()}>
+            Zurücksetzen
+          </Button>
+        </div>
+      </form>
+    </FormProvider>
+  )
+}
+
+/** Fake callbacks: each takes 1 s. With "409 simulieren", Bestätigen fails with two shortages. */
+function DocumentActionsDemo() {
+  const [status, setStatus] = useState<DocumentStatus>("DRAFT")
+  const [direction, setDirection] = useState<StockDirection>("IN")
+  const [failConfirm, setFailConfirm] = useState(false)
+
+  const wait = () => new Promise((resolve) => window.setTimeout(resolve, 1000))
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-center gap-2">
+        {(["DRAFT", "CONFIRMED", "CANCELLED"] as const).map((option) => (
+          <Button
+            key={option}
+            size="sm"
+            variant={status === option ? "default" : "outline"}
+            onClick={() => setStatus(option)}
+          >
+            {option}
+          </Button>
+        ))}
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setDirection((value) => (value === "IN" ? "OUT" : "IN"))}
+        >
+          direction: {direction}
+        </Button>
+        <Button size="sm" variant="outline" onClick={() => setFailConfirm((value) => !value)}>
+          409 simulieren: {String(failConfirm)}
+        </Button>
+      </div>
+      <div className="flex items-center gap-3">
+        <StatusBadge status={status} />
+        <DocumentActions
+          status={status}
+          documentNumber={direction === "IN" ? "WE-2026-0007" : "WA-2026-0003"}
+          direction={direction}
+          editTo="/dev/komponenten"
+          onConfirm={async () => {
+            await wait()
+            if (failConfirm) {
+              throw new ApiError({
+                status: 409,
+                title: "Nicht genügend Bestand",
+                detail: "Nicht genügend Bestand für 2 Artikel.",
+                shortages: [
+                  { productId: 1, sku: "A-1001", name: "Schraube M4", requested: 20, available: 5 },
+                  { productId: 2, sku: "A-1002", name: "Mutter M4", requested: 8, available: 0 },
+                ],
+              })
+            }
+            setStatus("CONFIRMED")
+            toast.success("Beleg bestätigt")
+          }}
+          onCancel={async () => {
+            await wait()
+            setStatus("CANCELLED")
+            toast.success("Beleg storniert")
+          }}
+          onDelete={async () => {
+            await wait()
+            toast.success("Entwurf gelöscht (Demo: Status bleibt)")
+          }}
+        />
+      </div>
+    </div>
   )
 }
 
