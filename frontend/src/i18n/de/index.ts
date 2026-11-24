@@ -1,6 +1,7 @@
 import { common } from "./common"
 import { customers } from "./customers"
 import { dashboard } from "./dashboard"
+import { documents } from "./documents"
 import { inbound } from "./inbound"
 import { outbound } from "./outbound"
 import { products } from "./products"
@@ -17,6 +18,7 @@ export const t = {
   dashboard,
   products,
   customers,
+  documents,
   inbound,
   outbound,
 } as const
