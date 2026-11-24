@@ -1,4 +1,14 @@
-import type { DocumentItem, DocumentStatus } from "@/features/documents/types"
+import type { DocumentItem, DocumentItemRequest, DocumentStatus } from "@/features/documents/types"
+
+/** Mirrors backend InboundDeliveryRequest (create and update draft). */
+export interface InboundDeliveryRequest {
+  supplierName: string
+  /** ISO date. The backend uses today when it is null. */
+  deliveryDate: string | null
+  note: string | null
+  /** At least one; a product at most once (business rule 6). */
+  items: DocumentItemRequest[]
+}
 
 /** One row of the Wareneingang list. Mirrors backend InboundDeliverySummaryResponse. */
 export interface InboundDeliverySummary {
