@@ -33,7 +33,33 @@ export const outbound = {
   },
   edit: {
     title: "Warenausgang bearbeiten",
+    titleNumbered: (number: string) => `Warenausgang ${number} bearbeiten`,
     description: "Einen Entwurf ändern",
+    notDraft: "Nur Entwürfe können bearbeitet werden",
+    notDraftDescription: (status: string) =>
+      `Dieser Warenausgang ist „${status}“ und kann nicht mehr geändert werden.`,
+    backToDetail: "Zum Warenausgang",
+  },
+  form: {
+    header: "Kopfdaten",
+    items: "Artikelzeilen",
+    itemsDescription:
+      "Welche Artikel in welcher Menge ausgeliefert werden. Der verfügbare Bestand steht unter jedem Artikel.",
+    customer: "Kunde",
+    orderDate: "Datum",
+    note: "Notiz",
+    notePlaceholder: "Optional, z. B. Lieferadresse oder Hinweise",
+    draftHint:
+      "Wird als Entwurf gespeichert, auch wenn der Bestand noch nicht reicht. Der Bestand ändert sich erst beim Bestätigen.",
+  },
+  validation: {
+    customerRequired: "Bitte einen Kunden wählen.",
+    orderDateRequired: "Bitte ein Datum wählen.",
+    noteMax: "Die Notiz darf höchstens 255 Zeichen lang sein.",
+  },
+  saved: {
+    created: (number: string) => `Warenausgang ${number} wurde als Entwurf angelegt.`,
+    updated: (number: string) => `Warenausgang ${number} wurde gespeichert.`,
   },
   actions: {
     create: "Neuer Warenausgang",
