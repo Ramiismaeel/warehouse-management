@@ -99,6 +99,8 @@
     </dependencies>
 
     <build>
+        <!-- Always target/app.jar: the deploy workflow and the Dockerfile rely on this name -->
+        <finalName>app</finalName>
         <plugins>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
