@@ -63,6 +63,13 @@ export const customers = {
     zipCodeInvalid: "Die PLZ muss aus 5 Ziffern bestehen.",
     cityMax: "Der Ort darf höchstens 255 Zeichen lang sein.",
   },
+  picker: {
+    placeholder: "Kunde wählen …",
+    search: "Name oder Ort suchen …",
+    noResults: "Kein Kunde gefunden",
+    loading: "Kunden werden geladen …",
+    loadError: "Kunden konnten nicht geladen werden",
+  },
   saved: {
     created: (name: string) => `Kunde „${name}“ wurde angelegt.`,
     updated: (name: string) => `Kunde „${name}“ wurde gespeichert.`,

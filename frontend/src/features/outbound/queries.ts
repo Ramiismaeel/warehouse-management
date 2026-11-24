@@ -4,11 +4,13 @@ import { dashboardKeys } from "@/features/dashboard/queries"
 import {
   cancelOutboundOrder,
   confirmOutboundOrder,
+  createOutboundOrder,
   deleteOutboundOrder,
   fetchOutboundOrder,
   fetchOutboundOrders,
+  updateOutboundOrder,
 } from "@/features/outbound/api"
-import type { OutboundOrderDetail } from "@/features/outbound/types"
+import type { OutboundOrderDetail, OutboundOrderRequest } from "@/features/outbound/types"
 import { productKeys } from "@/features/products/queries"
 
 export const outboundKeys = {
@@ -32,6 +34,25 @@ export function useOutboundOrder(id: number) {
     queryKey: outboundKeys.detail(id),
     queryFn: () => fetchOutboundOrder(id),
     enabled: isValidOutboundOrderId(id),
+  })
+}
+
+export function useCreateOutboundOrder() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: createOutboundOrder,
+    onSuccess: (order) => storeSavedDraft(queryClient, order),
+  })
+}
+
+export function useUpdateOutboundOrder() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ id, request }: { id: number; request: OutboundOrderRequest }) =>
+      updateOutboundOrder(id, request),
+    onSuccess: (order) => storeSavedDraft(queryClient, order),
   })
 }
 
@@ -72,6 +93,18 @@ export function useDeleteOutboundOrder() {
 
 export function isValidOutboundOrderId(id: number): boolean {
   return Number.isInteger(id) && id > 0
+}
+
+/**
+ * A saved draft has no stock effect: only the Warenausgang list and the dashboard
+ * (recent documents) are outdated. The detail page gets the saved data directly.
+ */
+function storeSavedDraft(queryClient: QueryClient, order: OutboundOrderDetail) {
+  queryClient.setQueryData(outboundKeys.detail(order.id), order)
+  return Promise.all([
+    queryClient.invalidateQueries({ queryKey: outboundKeys.lists() }),
+    queryClient.invalidateQueries({ queryKey: dashboardKeys.all }),
+  ])
 }
 
 /**
