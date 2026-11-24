@@ -142,8 +142,7 @@ backend/src/main/java/training/backend/
 └─ product/        Product, ProductUnit, ProductRepository, ProductService, ProductController, ProductMapper, dto/
 backend/src/main/resources/
 ├─ application.properties · application-{dev,postgres,prod}.properties
-├─ schema.sql      hand-written DDL (CHECK + unique constraints), used by `dev`/`postgres`
-├─ db/migration/   Flyway migrations, `prod` only (V1__init.sql = schema.sql without IF NOT EXISTS)
+├─ schema.sql      hand-written DDL (CHECK + unique constraints)
 └─ data/           01-products.sql, 02-customers.sql, 03-inbound-deliveries.sql, 04-outbound-orders.sql
                    (number prefix = load order, FKs depend on it)
 backend/src/test/java/training/backend/   mirrors main
@@ -182,15 +181,14 @@ from `StockService` (rule 1).
 - `dev` (default): H2 in-memory, PostgreSQL mode, `ddl-auto=create-drop`, seeds from `data/*.sql`
   (`spring.sql.init.data-locations`, `spring.jpa.defer-datasource-initialization=true`). Data resets on restart.
 - `postgres`: local PostgreSQL, env vars with defaults (`DB_URL` → `jdbc:postgresql://localhost:5432/warehouse`,
-  `DB_USER` → `postgres`), `schema.sql` creates the tables (`spring.sql.init.mode=always`), `ddl-auto=validate`.
-- `prod`: PostgreSQL on Neon via env vars `DB_URL`, `DB_USER`, `DB_PASSWORD` (no defaults). Flyway creates the schema
-  from `db/migration/V<n>__*.sql`, `ddl-auto=validate`, `spring.sql.init.mode=never` (no `schema.sql`, no seeds),
-  Hikari pool 5 / 30 s connection timeout (Neon wakes up slowly).
+  `DB_USER` → `postgres`), `ddl-auto=create`, seeds always run.
+- `prod`: PostgreSQL on Neon via env vars `DB_URL`, `DB_USER`, `DB_PASSWORD` (no defaults), schema by Flyway
+  (`db/migration`), `ddl-auto=validate`, no seed data. Details in the v1.1 section.
 - `test` (`src/test/resources/application-test.properties`): disables SQL init; activate with `@ActiveProfiles("test")`.
 - Hibernate creates the tables before `schema.sql` runs, so its `CREATE TABLE IF NOT EXISTS` statements are no-ops in
-  `dev`. Keep entities, `schema.sql` and the Flyway migrations in sync — `postgres` and `prod` validate against them.
+  `dev`/`postgres`. Still keep entities and `schema.sql` in sync — `prod` validates against the real schema.
 - Shared settings (`application.properties`): `open-in-view=false`, default profile `dev`, CORS origin
-  `http://localhost:5173`, `spring.flyway.enabled=false` (only `prod` turns it on).
+  `http://localhost:5173`.
 - **Portability rules for seed SQL:** standard SQL only, explicit column lists, **no explicit IDs** in INSERTs
   (identity sequences would collide), reference foreign keys via subselects (`(SELECT id FROM product WHERE sku = 'A-1001')`).
 - Configuration via env vars with defaults (`${DB_URL:...}`). No secrets in the repo.
@@ -307,70 +305,79 @@ One developer builds this in parallel with the group's tickets. Details per tick
   (no approval needed on this branch), squash merge.
 - Sync with the group regularly: `git switch release/v1.1 && git pull && git merge origin/main && git push`.
   Merge, never rebase.
-- **Never change the group's work.** Keep edits to shared files (`pom.xml`, `application*.properties`,
-  `.github/workflows/maven.yml`, `api/client.ts`, `router.tsx`, `AppLayout`) as small as possible and mention each one in the PR.
+- **Never change the group's work.** Keep edits to shared files (`pom.xml`, `application*.properties`, `.gitignore`,
+  `api/client.ts`, `router.tsx`, `AppLayout`) as small as possible and mention each one in the PR.
 - At the end: one PR `release/v1.1` → `main`, reviewed by a teammate.
 
 **Status**
-- Active: WM-44 → WM-45 → WM-46 → WM-47 → WM-48 (WM-49 optional).
+- Done: WM-44 (Neon + Flyway). Active: **WM-45** (the whole deployment in one ticket).
+- WM-46 to WM-49 are obsolete (merged into WM-45). Don't build nginx, a frontend Dockerfile, docker-compose or a
+  second Render service.
 - **On hold until the group's tickets are done: WM-41, WM-42 (login/security), WM-50 (docs).** Don't add Spring
-  Security, auth endpoints or a login page before then, even if a deployment ticket seems to need it.
+  Security, auth endpoints or a login page before then.
 
-**Decisions (team, 23.11.2026)**
+**Decisions (team)**
 
 | Topic | Decision |
 |-------|----------|
-| Hosting | Render free web services, images from Docker Hub, deployed by GitHub Actions |
-| Containers | `warehouse-backend` (Spring Boot, Java 25) · `warehouse-frontend` (nginx serving the Vite build) |
-| Frontend → backend | nginx forwards `/api/` to the backend → same origin, no CORS (Vite proxy does the same in dev) |
+| Approach (24.11.) | Like the Spring Boot course: the React build goes into Spring Boot's `static` folder → **one jar, one Docker image, one Render service** |
+| Hosting | Render free web service, image from Docker Hub, deployed by GitHub Actions + Render deploy hook |
+| Frontend → backend | Same origin (Spring Boot serves both). No CORS, no nginx. The Vite proxy does the same in dev |
 | Database | Neon Postgres (Frankfurt), schema by Flyway in `prod` only |
 | Login (on hold) | Spring Security session cookie, one fixed user from `APP_USERNAME` / `APP_PASSWORD` |
 | Deploy trigger | Push to `release/v1.1` while building; `main` after the final release PR |
-| Image tags | `latest` + commit SHA; Render always deploys the SHA tag |
 
 **Target architecture**
 
 ```
-Browser → Render warehouse-frontend (nginx: static build + /api proxy)
-        → Render warehouse-backend (Spring Boot, profile prod) → Neon Postgres
-GitHub push → .github/workflows/deploy.yml → tests → Docker Hub images → Render deploy hooks
+Browser → Render web service (Spring Boot, profile prod: React files + /api/v1) → Neon Postgres
+GitHub push → .github/workflows/deploy.yml: build frontend → build backend (frontend copied into static/)
+            → Dockerfile (repo root) → Docker Hub → Render deploy hook
 ```
 
+**Files this adds**
+- `Dockerfile` in the repo root: `eclipse-temurin:25-jre`, copies `backend-target/app.jar`
+- `.github/workflows/deploy.yml`: jobs `build-frontend` → `build-backend` → `push-to-docker-hub` → `deploy`
+- `backend/.../config/SpaConfig`: serves `static/`, unknown non-API paths fall back to `index.html`
+- `pom.xml`: `<finalName>app</finalName>` → the jar is always `app.jar`
+
 **Rules**
-- No secrets in the repo, in images or in workflow files. Configuration only via env vars; defaults only in
+- No secrets in the repo, in the image or in workflow files. Configuration only via env vars; defaults only in
   `application-dev.properties` / the `postgres` profile, never in `prod`.
+- `backend/src/main/resources/static/` and `backend-target/` are build output: never commit them. The frontend
+  source of truth stays in `frontend/`.
 - The frontend calls the API only through `api/client.ts` with the relative `/api/v1`. Never hardcode a backend URL.
+- API paths stay under `/api/`, so the SPA fallback never swallows them.
 - Flyway runs only in `prod` (`spring.flyway.enabled=false` everywhere else). Schema changes only through a new
   `src/main/resources/db/migration/V<n>__<desc>.sql`; never edit a migration that has run. Keep entities,
   `schema.sql` and migrations in sync.
 - `prod` loads no seed data (`spring.sql.init.mode=never`).
-- Dockerfiles: multi-stage, non-root runtime user, base images pinned to a major version, `.dockerignore` per app.
-- Only the actuator `health` endpoint is exposed.
 - Spring Boot 4 is modular: features like Flyway need their `spring-boot-starter-*`, not just the library.
+- Java version is **25** everywhere (Dockerfile, workflow, `pom.xml`).
 
 **Environment variables**
 
-| Name | Used by | Dev / local | Production (set in) |
-|------|---------|-------------|---------------------|
-| `SPRING_PROFILES_ACTIVE` | backend | `dev` (default) | `prod` (Dockerfile) |
-| `DB_URL` | backend | `postgres` profile default | Render: `jdbc:postgresql://<neon-host>/warehouse?sslmode=require` |
-| `DB_USER`, `DB_PASSWORD` | backend | `postgres` profile default | Render |
-| `PORT` | backend, frontend | 8080 / 8080 | set by Render automatically |
-| `BACKEND_URL` | frontend (nginx) | `http://backend:8080` (compose) | Render: `https://warehouse-backend.onrender.com` |
-| `APP_USERNAME`, `APP_PASSWORD` | backend (on hold, WM-41) | `admin` / `admin` | Render |
+| Name | Dev / local | Production (set in) |
+|------|-------------|---------------------|
+| `SPRING_PROFILES_ACTIVE` | `dev` (default) | Render: `prod` |
+| `DB_URL` | `postgres` profile default | Render: `jdbc:postgresql://<neon-host>/warehouse?sslmode=require&channelBinding=require` |
+| `DB_USER`, `DB_PASSWORD` | `postgres` profile default | Render |
+| `PORT` | 8080 | set by Render |
+| `APP_USERNAME`, `APP_PASSWORD` (on hold, WM-41) | `admin` / `admin` | Render |
 
-GitHub secrets: `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`, `RENDER_DEPLOY_HOOK_BACKEND`, `RENDER_DEPLOY_HOOK_FRONTEND`.
+GitHub secrets: `DOCKERHUB_USERNAME`, `DOCKERHUB_PASSWORD` (Docker Hub access token), `DOCKERHUB_TAG`
+(e.g. `<user>/warehouse-management:latest`), `RENDER_DEPLOY_HOOK`.
 
-**Commands (once the tickets are merged)**
-- `docker build -t warehouse-backend ./backend` · `docker build -t warehouse-frontend ./frontend`
-- `docker run --rm -p 8080:8080 -e DB_URL=... -e DB_USER=... -e DB_PASSWORD=... warehouse-backend`
-- `docker compose up --build` → http://localhost:8081 (WM-49)
+**Commands**
+- Run `prod` locally against Neon: set `DB_URL`, `DB_USER`, `DB_PASSWORD` in the terminal, then
+  `./mvnw spring-boot:run -Dspring-boot.run.profiles=prod` (PowerShell: quote the `-D` argument)
+- Build the image locally: see "Local test" under T31 in `docs/TICKETS.md`
 - Manual redeploy: GitHub → Actions → *deploy* → *Run workflow*
 
 ---
 
 ## Not now (keep the door open, do not build without a team decision)
 
-Docker / docker-compose, PostgreSQL + Flyway and CI/CD deployment are planned in **v1.1** (section above);
+Docker, PostgreSQL + Flyway and CI/CD deployment are part of **v1.1** (section above);
 Spring Security is planned there too but **on hold**. Still not planned: i18n library ·
 server-side paging · OpenAPI → TypeScript type generation · Supplier entity · stock movement history.

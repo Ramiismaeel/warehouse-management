@@ -1,2 +1,6 @@
 .idea*
 warehouse-management.iml
+
+# v1.1 deploy build output (frontend copied into the jar, jar copied for the Dockerfile): never commit
+backend/src/main/resources/static/
+backend-target/

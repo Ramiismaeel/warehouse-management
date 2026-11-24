@@ -20,11 +20,11 @@
 
 ```mermaid
 flowchart LR
-    S([Lieferant]) -->|Wareneingang bestätigt<br/>Bestand +| B[(Bestand<br/>je Artikel)]
-    B -->|Warenausgang bestätigt<br/>Bestand −| K([Kunde])
-    A[Artikel-Stammdaten] --> B
-    KD[Kunden-Stammdaten] --> K
-    B --> D[Dashboard<br/>Warnung bei niedrigem Bestand]
+  S([Lieferant]) -->|Wareneingang bestätigt<br/>Bestand +| B[(Bestand<br/>je Artikel)]
+  B -->|Warenausgang bestätigt<br/>Bestand −| K([Kunde])
+  A[Artikel-Stammdaten] --> B
+  KD[Kunden-Stammdaten] --> K
+  B --> D[Dashboard<br/>Warnung bei niedrigem Bestand]
 ```
 
 Every Wareneingang and Warenausgang (a *Beleg*) goes through the same status flow. Stock changes only on
@@ -32,12 +32,12 @@ Every Wareneingang and Warenausgang (a *Beleg*) goes through the same status flo
 
 ```mermaid
 stateDiagram-v2
-    [*] --> DRAFT : anlegen
-    DRAFT --> DRAFT : bearbeiten
-    DRAFT --> [*] : löschen
-    DRAFT --> CONFIRMED : bestätigen (Bestand ändert sich)
-    CONFIRMED --> CANCELLED : stornieren (Bestand wird zurückgebucht)
-    CANCELLED --> [*]
+  [*] --> DRAFT : anlegen
+  DRAFT --> DRAFT : bearbeiten
+  DRAFT --> [*] : löschen
+  DRAFT --> CONFIRMED : bestätigen (Bestand ändert sich)
+  CONFIRMED --> CANCELLED : stornieren (Bestand wird zurückgebucht)
+  CANCELLED --> [*]
 ```
 
 UI labels: `DRAFT` = Entwurf · `CONFIRMED` = Bestätigt · `CANCELLED` = Storniert.
@@ -88,68 +88,68 @@ Full glossary and all business rules: [`CLAUDE.md`](../CLAUDE.md#domain-glossary
 
 ```mermaid
 erDiagram
-    CUSTOMER ||--o{ OUTBOUND_ORDER : places
-    OUTBOUND_ORDER ||--|{ OUTBOUND_ORDER_ITEM : contains
-    PRODUCT ||--o{ OUTBOUND_ORDER_ITEM : "ordered as"
-    INBOUND_DELIVERY ||--|{ INBOUND_DELIVERY_ITEM : contains
-    PRODUCT ||--o{ INBOUND_DELIVERY_ITEM : "delivered as"
+  CUSTOMER ||--o{ OUTBOUND_ORDER : places
+  OUTBOUND_ORDER ||--|{ OUTBOUND_ORDER_ITEM : contains
+  PRODUCT ||--o{ OUTBOUND_ORDER_ITEM : "ordered as"
+  INBOUND_DELIVERY ||--|{ INBOUND_DELIVERY_ITEM : contains
+  PRODUCT ||--o{ INBOUND_DELIVERY_ITEM : "delivered as"
 
-    PRODUCT {
-        bigint id PK
-        varchar sku UK
-        varchar name
-        varchar description
-        varchar unit
-        int quantity
-        int min_quantity
-        varchar image_url
-        bigint version
-        timestamp created_at
-        timestamp updated_at
-    }
-    CUSTOMER {
-        bigint id PK
-        varchar name
-        varchar email
-        varchar phone
-        varchar street
-        varchar zip_code
-        varchar city
-        timestamp created_at
-        timestamp updated_at
-    }
-    INBOUND_DELIVERY {
-        bigint id PK
-        varchar delivery_number UK
-        varchar supplier_name
-        varchar status
-        date delivery_date
-        varchar note
-        timestamp created_at
-        timestamp updated_at
-    }
-    INBOUND_DELIVERY_ITEM {
-        bigint id PK
-        bigint inbound_delivery_id FK
-        bigint product_id FK
-        int quantity
-    }
-    OUTBOUND_ORDER {
-        bigint id PK
-        varchar order_number UK
-        bigint customer_id FK
-        varchar status
-        date order_date
-        varchar note
-        timestamp created_at
-        timestamp updated_at
-    }
-    OUTBOUND_ORDER_ITEM {
-        bigint id PK
-        bigint outbound_order_id FK
-        bigint product_id FK
-        int quantity
-    }
+  PRODUCT {
+    bigint id PK
+    varchar sku UK
+    varchar name
+    varchar description
+    varchar unit
+    int quantity
+    int min_quantity
+    varchar image_url
+    bigint version
+    timestamp created_at
+    timestamp updated_at
+  }
+  CUSTOMER {
+    bigint id PK
+    varchar name
+    varchar email
+    varchar phone
+    varchar street
+    varchar zip_code
+    varchar city
+    timestamp created_at
+    timestamp updated_at
+  }
+  INBOUND_DELIVERY {
+    bigint id PK
+    varchar delivery_number UK
+    varchar supplier_name
+    varchar status
+    date delivery_date
+    varchar note
+    timestamp created_at
+    timestamp updated_at
+  }
+  INBOUND_DELIVERY_ITEM {
+    bigint id PK
+    bigint inbound_delivery_id FK
+    bigint product_id FK
+    int quantity
+  }
+  OUTBOUND_ORDER {
+    bigint id PK
+    varchar order_number UK
+    bigint customer_id FK
+    varchar status
+    date order_date
+    varchar note
+    timestamp created_at
+    timestamp updated_at
+  }
+  OUTBOUND_ORDER_ITEM {
+    bigint id PK
+    bigint outbound_order_id FK
+    bigint product_id FK
+    int quantity
+  }
 ```
 
 Relations in words: a Kunde has many Warenausgänge · each Beleg has ≥ 1 item · each item points to one Artikel ·
@@ -161,18 +161,18 @@ Wareneingang has **no** direct relation to Artikel or Warenausgang.
 
 ```mermaid
 flowchart LR
-    subgraph FE[Frontend · React + TS]
-        P[Pages] --> H[Feature hooks<br/>TanStack Query]
-        H --> AX[axios client]
-    end
-    subgraph BE[Backend · Spring Boot]
-        C[Controller<br/>DTOs + validation] --> SV[Service<br/>business rules]
-        SV --> ST[StockService<br/>only stock writer]
-        SV --> R[Repository<br/>Spring Data JPA]
-        ST --> R
-    end
-    AX -->|/api/v1 JSON| C
-    R --> DB[(H2 now<br/>PostgreSQL later)]
+subgraph FE[Frontend · React + TS]
+P[Pages] --> H[Feature hooks<br/>TanStack Query]
+H --> AX[axios client]
+end
+subgraph BE[Backend · Spring Boot]
+C[Controller<br/>DTOs + validation] --> SV[Service<br/>business rules]
+SV --> ST[StockService<br/>only stock writer]
+SV --> R[Repository<br/>Spring Data JPA]
+ST --> R
+end
+AX -->|/api/v1 JSON| C
+R --> DB[(H2 now<br/>PostgreSQL later)]
 ```
 
 Folder structures, layer rules and API endpoints: [`CLAUDE.md`](../CLAUDE.md#backend-architecture).
@@ -183,17 +183,17 @@ Folder structures, layer rules and API endpoints: [`CLAUDE.md`](../CLAUDE.md#bac
 
 ```mermaid
 flowchart TD
-    S[Projekt-Setup<br/>T01–T07] --> A[Artikel<br/>T08–T10]
-    S --> K[Kunden<br/>T11–T12]
-    A --> BB[Bestand & Belege-Basis<br/>T13–T14]
-    A --> WE[Wareneingang<br/>T15–T18]
-    BB --> WE
-    A --> WA[Warenausgang<br/>T19–T22]
-    K --> WA
-    BB --> WA
-    WE --> D[Dashboard<br/>T23–T24]
-    WA --> D
-    D --> F[Abschluss & Freeze 21.11.<br/>T25–T27]
+  S[Projekt-Setup<br/>T01–T07] --> A[Artikel<br/>T08–T10]
+S --> K[Kunden<br/>T11–T12]
+A --> BB[Bestand & Belege-Basis<br/>T13–T14]
+A --> WE[Wareneingang<br/>T15–T18]
+BB --> WE
+A --> WA[Warenausgang<br/>T19–T22]
+K --> WA
+BB --> WA
+WE --> D[Dashboard<br/>T23–T24]
+WA --> D
+D --> F[Abschluss & Freeze 21.11.<br/>T25–T27]
 ```
 
 | Lane | Person | Tickets | Focus |
@@ -262,13 +262,13 @@ Built by one developer on the long-lived branch `release/v1.1`, in parallel with
 group's tickets. One PR `release/v1.1` → `main` at the end, reviewed by a teammate.
 Tickets: [`TICKETS.md`](TICKETS.md) → *v1.1* (Jira epics WM-40 and WM-43). Workflow and rules: `CLAUDE.md` → *v1.1*.
 
-### Decisions (locked 23.11.2026)
+### Decisions
 
 | # | Topic | Decision |
 |---|-------|----------|
-| 16 | Hosting | Render (free web services), images from Docker Hub, automated with GitHub Actions |
-| 17 | Containers | Two images: backend (Spring Boot) and frontend (nginx serving the build) |
-| 18 | Frontend → backend | nginx forwards `/api` to the backend (same origin, no CORS) |
+| 16 | Hosting | Render (free web service), image from Docker Hub, automated with GitHub Actions |
+| 17 | Packaging (24.11.) | Like the Spring Boot course: React build inside the Spring Boot jar → **one image, one Render service** |
+| 18 | Frontend → backend | Same origin (Spring Boot serves both), no CORS, no nginx |
 | 19 | Login | Spring Security session cookie, one fixed user from env vars, no registration (**on hold** until T01–T27 are done) |
 | 20 | Database | Neon Postgres, Flyway in `prod` |
 | 21 | Branching | `release/v1.1` as integration branch, PRs into it without approval, final PR into `main` with review |
@@ -277,41 +277,35 @@ Tickets: [`TICKETS.md`](TICKETS.md) → *v1.1* (Jira epics WM-40 and WM-43). Wor
 
 ```mermaid
 flowchart LR
-    U([Browser]) --> FE[Render: warehouse-frontend<br/>nginx · static build]
-    FE -->|/api/*| BE[Render: warehouse-backend<br/>Spring Boot · profile prod]
-    BE --> DB[(Neon Postgres<br/>Frankfurt)]
+    U([Browser]) --> R[Render web service<br/>Spring Boot · profile prod<br/>React files + /api/v1]
+    R --> DB[(Neon Postgres<br/>Frankfurt)]
 ```
 
-### Pipeline
+### Pipeline (`.github/workflows/deploy.yml`)
 
 ```mermaid
 flowchart LR
-    M[Merge PR into<br/>release/v1.1] --> GA[deploy.yml]
-    GA --> T[Backend verify<br/>Frontend lint + build]
-    T --> I[Build images<br/>latest + commit SHA]
-    I --> H[(Docker Hub)]
-    I --> R[Render deploy hooks<br/>SHA tag]
-    R --> S[Smoke test]
+    M[Merge PR into<br/>release/v1.1] --> F[build-frontend<br/>npm ci · lint · build]
+    F --> B[build-backend<br/>dist → static/<br/>mvn package + tests]
+    B --> D[push-to-docker-hub<br/>Dockerfile in root]
+    D --> H[(Docker Hub)]
+    D --> R[deploy<br/>Render deploy hook]
 ```
 
 ### Ticket order
 
 ```mermaid
 flowchart TD
-    T30[T30 · WM-44<br/>Neon + Flyway] --> T31[T31 · WM-45<br/>Backend Dockerfile]
-    T32[T32 · WM-46<br/>Frontend Dockerfile + nginx]
-    T31 --> T33[T33 · WM-47<br/>Build & push images]
-    T32 --> T33
-    T33 --> T34[T34 · WM-48<br/>Render + auto-deploy]
-    T31 -.-> T35[T35 · WM-49<br/>docker-compose, optional]
-    T32 -.-> T35
+    T30[T30 · WM-44<br/>Neon + Flyway ✓] --> T31[T31 · WM-45<br/>Docker image + GitHub Actions + Render]
     subgraph HOLD[On hold until T01–T27 are done]
         T28[T28 · WM-41<br/>BE session login] --> T29[T29 · WM-42<br/>FE login page]
         T36[T36 · WM-50<br/>Docs]
     end
-    T34 --> T36
+    T31 --> T28
     T29 --> T36
 ```
+
+T32–T35 (WM-46 to WM-49) are obsolete: they described the earlier two-container plan with nginx.
 
 ### Free-tier limits
 
