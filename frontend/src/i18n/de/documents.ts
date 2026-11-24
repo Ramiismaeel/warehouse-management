@@ -52,6 +52,16 @@ export const documents = {
   },
   shortage: (sku: string, name: string, requested: string, available: string) =>
     `${sku} ${name}: benötigt ${requested}, verfügbar ${available}`,
+  shortageAlert: {
+    precheckTitle: (count: number) =>
+      count === 1
+        ? "Für 1 Artikel reicht der Bestand nicht"
+        : `Für ${count} Artikel reicht der Bestand nicht`,
+    precheckDescription:
+      "Bestätigen ist erst möglich, wenn genug Bestand da ist, z. B. nach einem Wareneingang. Stand: aktueller Bestand.",
+    failedDescription: "Der Warenausgang wurde nicht bestätigt. Der Bestand ist unverändert.",
+    dismiss: "Ausblenden",
+  },
   validation: {
     productRequired: "Bitte einen Artikel wählen.",
     quantityRequired: "Bitte eine Menge angeben.",

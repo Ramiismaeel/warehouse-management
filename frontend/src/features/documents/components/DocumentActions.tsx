@@ -7,12 +7,12 @@ import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
 import { Button } from "@/components/ui/button"
 import type { DocumentStatus, StockDirection } from "@/features/documents/types"
 import { t } from "@/i18n/de"
-import { toApiError } from "@/lib/errors"
+import { toApiError, type ApiError } from "@/lib/errors"
 import { formatNumber } from "@/lib/format"
 
 const text = t.documents
 
-type DocumentAction = "confirm" | "cancel" | "delete"
+export type DocumentAction = "confirm" | "cancel" | "delete"
 
 interface DocumentActionsProps {
   status: DocumentStatus
@@ -29,6 +29,8 @@ interface DocumentActionsProps {
   onConfirm: () => Promise<unknown>
   onCancel: () => Promise<unknown>
   onDelete: () => Promise<unknown>
+  /** Called after the error toast, e.g. to keep a 409's shortages on the page (Warenausgang). */
+  onError?: (error: ApiError, action: DocumentAction) => void
 }
 
 /**
@@ -43,6 +45,7 @@ export function DocumentActions({
   onConfirm,
   onCancel,
   onDelete,
+  onError,
 }: DocumentActionsProps) {
   // Kept after closing, so the dialog texts don't change during the close animation.
   const [action, setAction] = useState<DocumentAction>("confirm")
@@ -68,7 +71,9 @@ export function DocumentActions({
     try {
       await handlers[action]()
     } catch (error) {
-      showActionError(error)
+      const apiError = toApiError(error)
+      showActionError(apiError)
+      onError?.(apiError, action)
     } finally {
       setIsRunning(false)
       setIsDialogOpen(false)
@@ -141,8 +146,7 @@ export function DocumentActions({
 }
 
 /** Like useApiErrorToast, but a 409 stock conflict also lists every short product. */
-function showActionError(error: unknown) {
-  const { detail, shortages } = toApiError(error)
+function showActionError({ detail, shortages }: ApiError) {
   toast.error(detail, {
     id: detail,
     description:
