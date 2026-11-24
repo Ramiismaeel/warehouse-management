@@ -221,7 +221,7 @@ export function ComponentsDemoPage() {
           description={
             dialog === "destructive"
               ? "Das kann nicht rückgängig gemacht werden."
-              : "Der Bestand aller Positionen wird erhöht."
+              : "Der Bestand aller Artikel in diesem Beleg wird erhöht."
           }
           confirmLabel={dialog === "destructive" ? "Löschen" : "Bestätigen"}
           isLoading={isConfirming}
@@ -278,7 +278,7 @@ function DocumentItemsDemo() {
         noValidate
         className="flex flex-col gap-4"
         onSubmit={form.handleSubmit(({ items }) =>
-          toast.success("Positionen gültig", { description: JSON.stringify(items) }),
+          toast.success("Artikelzeilen gültig", { description: JSON.stringify(items) }),
         )}
       >
         <Button

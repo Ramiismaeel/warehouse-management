@@ -83,9 +83,9 @@ frontend gates must be run locally.
 | Artikel                | `Product`             | `product`               | Master data of a stock item                     |
 | Kunde                  | `Customer`            | `customer`              | Master data of a customer                       |
 | Wareneingang           | `InboundDelivery`     | `inbound_delivery`      | Goods from a supplier INTO the warehouse (+)    |
-| Wareneingangsposition  | `InboundDeliveryItem` | `inbound_delivery_item` | One product line of a Wareneingang              |
+| Artikelzeile (Wareneingang) | `InboundDeliveryItem` | `inbound_delivery_item` | One product line of a Wareneingang              |
 | Warenausgang           | `OutboundOrder`       | `outbound_order`        | Goods FROM the warehouse to a customer (−)      |
-| Warenausgangsposition  | `OutboundOrderItem`   | `outbound_order_item`   | One product line of a Warenausgang              |
+| Artikelzeile (Warenausgang) | `OutboundOrderItem`   | `outbound_order_item`   | One product line of a Warenausgang              |
 | Beleg                  | "document"            | –                       | Generic word for Wareneingang or Warenausgang   |
 | Bestand                | `Product.quantity`    | `quantity`              | Current stock                                   |
 | Mindestbestand         | `Product.minQuantity` | `min_quantity`          | Threshold for the low-stock warning             |

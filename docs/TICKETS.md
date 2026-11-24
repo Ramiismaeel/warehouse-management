@@ -399,7 +399,7 @@ Overview and detail page with status actions.
 **Tasks**
 
 - [ ] types/api/queries for inbound (mutations invalidate inbound, products, dashboard)
-- [ ] List: Nummer, Lieferant, Datum, Positionen, Menge, StatusBadge; filter by status; 'Neuer Wareneingang'
+- [ ] List: Nummer, Lieferant, Datum, Artikelzeilen, Menge, StatusBadge; filter by status; 'Neuer Wareneingang'
 - [ ] Detail: header data, items table, DocumentActions; shortages from 409 shown in toast
 
 **Acceptance criteria**
@@ -476,7 +476,7 @@ Overview and detail page with status actions.
 **Tasks**
 
 - [ ] types/api/queries for outbound (mutations invalidate outbound, products, dashboard)
-- [ ] List: Nummer, Kunde, Datum, Positionen, Menge, StatusBadge; filter by status
+- [ ] List: Nummer, Kunde, Datum, Artikelzeilen, Menge, StatusBadge; filter by status
 - [ ] Detail with DocumentActions; on 409 list each shortage (Artikel, benötigt, verfügbar)
 
 **Acceptance criteria**
