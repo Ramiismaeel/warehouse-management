@@ -9,7 +9,7 @@ export const outbound = {
   },
   detail: {
     title: "Warenausgang",
-    description: "Details und Positionen des Warenausgangs",
+    description: "Details und Artikelzeilen des Warenausgangs",
   },
   edit: {
     title: "Warenausgang bearbeiten",

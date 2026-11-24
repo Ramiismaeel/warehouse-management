@@ -12,12 +12,22 @@ export const documents = {
   items: {
     product: "Artikel",
     quantity: "Menge",
-    remove: "Position entfernen",
-    removeNamed: (position: number) => `Position ${position} entfernen`,
-    add: "Position hinzufügen",
+    remove: "Artikelzeile entfernen",
+    removeNamed: (position: number) => `Artikelzeile ${position} entfernen`,
+    add: "Artikelzeile hinzufügen",
     available: (quantity: string, unit: string) => `Verfügbar: ${quantity} ${unit}`,
     notEnough: (quantity: string, unit: string) =>
       `Nur ${quantity} ${unit} verfügbar. Bestätigen ist erst mit genug Bestand möglich.`,
+  },
+  statusFilter: {
+    label: "Nach Status filtern",
+    all: "Alle",
+  },
+  itemsTable: {
+    position: "Nr.",
+    sku: "SKU",
+    product: "Artikel",
+    quantity: "Menge",
   },
   actions: {
     edit: "Bearbeiten",
@@ -28,14 +38,14 @@ export const documents = {
   dialogs: {
     confirmTitle: (number: string) => `Beleg „${number}“ bestätigen?`,
     confirmIn:
-      "Der Bestand aller Positionen wird erhöht. Danach kann der Beleg nicht mehr bearbeitet werden.",
+      "Der Bestand aller Artikel in diesem Beleg wird erhöht. Danach kann der Beleg nicht mehr bearbeitet werden.",
     confirmOut:
-      "Der Bestand aller Positionen wird verringert. Danach kann der Beleg nicht mehr bearbeitet werden.",
+      "Der Bestand aller Artikel in diesem Beleg wird verringert. Danach kann der Beleg nicht mehr bearbeitet werden.",
     cancelTitle: (number: string) => `Beleg „${number}“ stornieren?`,
     cancelIn:
-      "Der Bestand aller Positionen wird wieder verringert. Ein stornierter Beleg kann nicht mehr geändert werden.",
+      "Der Bestand aller Artikel in diesem Beleg wird wieder verringert. Ein stornierter Beleg kann nicht mehr geändert werden.",
     cancelOut:
-      "Der Bestand aller Positionen wird wieder erhöht. Ein stornierter Beleg kann nicht mehr geändert werden.",
+      "Der Bestand aller Artikel in diesem Beleg wird wieder erhöht. Ein stornierter Beleg kann nicht mehr geändert werden.",
     deleteTitle: (number: string) => `Entwurf „${number}“ löschen?`,
     deleteDescription:
       "Der Entwurf wird endgültig gelöscht. Das kann nicht rückgängig gemacht werden. Der Bestand ändert sich nicht.",
@@ -47,7 +57,7 @@ export const documents = {
     quantityRequired: "Bitte eine Menge angeben.",
     quantityInteger: "Die Menge muss eine ganze Zahl sein.",
     quantityMin: "Die Menge muss mindestens 1 sein.",
-    itemsMin: "Der Beleg braucht mindestens eine Position.",
+    itemsMin: "Der Beleg braucht mindestens eine Artikelzeile.",
     duplicateProduct: "Dieser Artikel ist bereits im Beleg.",
   },
 } as const
