@@ -1,4 +1,5 @@
 import axios from "axios"
+import type { FieldValues, Path, UseFormSetError } from "react-hook-form"
 
 import { t } from "@/i18n/de"
 
@@ -73,6 +74,26 @@ export function toApiError(error: unknown): ApiError {
     title: t.common.errors.title,
     detail: t.common.errors.generic,
   })
+}
+
+/**
+ * Puts the backend's field errors (400 validation, 409 duplicate value) on the matching form fields
+ * and focuses the first one. Returns false when none of them belongs to the form, so the caller can
+ * show a toast instead.
+ *
+ * @example
+ * if (!applyFieldErrors(toApiError(error), form.setError, PRODUCT_FORM_FIELDS)) showApiError(error)
+ */
+export function applyFieldErrors<T extends FieldValues>(
+  error: ApiError,
+  setError: UseFormSetError<T>,
+  fields: readonly Path<T>[],
+): boolean {
+  const invalidFields = fields.filter((field) => field in error.errors)
+  invalidFields.forEach((field, index) =>
+    setError(field, { type: "server", message: error.errors[field] }, { shouldFocus: index === 0 }),
+  )
+  return invalidFields.length > 0
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
