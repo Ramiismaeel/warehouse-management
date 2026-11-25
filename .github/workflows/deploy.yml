@@ -4,7 +4,7 @@ name: deploy
 
 on:
   push:
-    branches: [release/v1.1] # switched to main in the final release PR (WM-50)
+    branches: [main] # switched to main in the final release PR (WM-50)
   workflow_dispatch:
 
 # Never run two deploys at once; a newer push waits for the running one.
@@ -96,4 +96,10 @@ jobs:
       - name: Trigger Render deploy hook
         env:
           RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+        run: curl -fsS -X POST "$RENDER_DEPLOY_HOOK" > /dev/null
+
+      - name: Trigger Render deploy hook2
+        if: always()
+        env:
+          RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL_2 }}
         run: curl -fsS -X POST "$RENDER_DEPLOY_HOOK" > /dev/null

@@ -51,11 +51,6 @@ function DashboardContent({ data }: { data: Dashboard }) {
   // The backend's lowStockCount includes the empty products (0 ≤ Mindestbestand, rule 8).
   // The cards show them apart, like StockBadge does: Niedrig + Leer = lowStockCount.
   const lowNotEmptyCount = data.lowStockCount - data.outOfStockCount
-  // Drafts link to the list that has them; with drafts in both, the Wareneingänge come first.
-  const draftsPath =
-    data.openInboundDrafts === 0 && data.openOutboundDrafts > 0
-      ? "/warenausgang?status=DRAFT"
-      : "/wareneingang?status=DRAFT"
 
   return (
     <>
@@ -86,12 +81,23 @@ function DashboardContent({ data }: { data: Dashboard }) {
         <KpiCard
           label={text.kpis.openDrafts}
           value={openDrafts}
-          hint={text.kpis.openDraftsHint(
-            formatNumber(data.openInboundDrafts),
-            formatNumber(data.openOutboundDrafts),
-          )}
           icon={FilePen}
-          to={draftsPath}
+          links={[
+            {
+              label: text.kpis.openInboundDrafts(
+                data.openInboundDrafts,
+                formatNumber(data.openInboundDrafts),
+              ),
+              to: "/wareneingang?status=DRAFT",
+            },
+            {
+              label: text.kpis.openOutboundDrafts(
+                data.openOutboundDrafts,
+                formatNumber(data.openOutboundDrafts),
+              ),
+              to: "/warenausgang?status=DRAFT",
+            },
+          ]}
         />
       </div>
 
