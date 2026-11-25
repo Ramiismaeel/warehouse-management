@@ -271,8 +271,9 @@ frontend/src/
 - **All user-facing text is German and lives in `src/i18n/de/<feature>.ts`.** Code, identifiers and comments are English.
 - Dates and numbers only via `lib/format.ts` (de-DE, e.g. `12.11.2026`).
 - Styling: Tailwind utilities only, `cn()` for conditional classes, no extra CSS files. Icons only from lucide-react.
-- Product images: `imageUrl` or fallback `https://picsum.photos/seed/<sku>/400/400`. On load error show the
-  lucide `Package` icon (`ProductImage` component).
+- Product images: `imageUrl`; without one, or on load error, show the lucide `Package` icon (`ProductImage`
+  component). The form fills an empty `imageUrl` with an Unsplash photo when the name field is left
+  (`VITE_UNSPLASH_ACCESS_KEY` in `frontend/.env.local`; GitHub secret `UNSPLASH_ACCESS_KEY` for the deploy).
 - TypeScript strict, no `any` (use `unknown` + narrowing).
 
 ---

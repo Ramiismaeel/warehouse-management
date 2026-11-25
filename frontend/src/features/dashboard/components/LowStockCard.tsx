@@ -79,12 +79,7 @@ export function LowStockCard({ products, total }: LowStockCardProps) {
                       to={`/artikel/${product.id}/bearbeiten`}
                       className="flex items-center gap-3 underline-offset-4 hover:underline"
                     >
-                      <ProductImage
-                        sku={product.sku}
-                        imageUrl={product.imageUrl}
-                        alt=""
-                        className="size-8"
-                      />
+                      <ProductImage imageUrl={product.imageUrl} alt="" className="size-8" />
                       <span className="min-w-0">
                         <span className="block truncate font-medium">{product.name}</span>
                         <span className="block font-mono text-xs text-muted-foreground">
