@@ -10,7 +10,10 @@ export const dashboard = {
     outOfStock: "Leer",
     outOfStockHint: "Bestand 0",
     openDrafts: "Offene Entwürfe",
-    openDraftsHint: (inbound: string, outbound: string) => `${inbound} WE · ${outbound} WA`,
+    openInboundDrafts: (count: number, formatted: string) =>
+      count === 1 ? "1 Wareneingang" : `${formatted} Wareneingänge`,
+    openOutboundDrafts: (count: number, formatted: string) =>
+      count === 1 ? "1 Warenausgang" : `${formatted} Warenausgänge`,
   },
   lowStock: {
     title: "Niedriger Bestand",
