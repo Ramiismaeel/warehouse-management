@@ -24,7 +24,7 @@ public class CustomerService {
     public List<CustomerResponse> getAll(String q) {
         List<Customer> customers = ( q == null || q.isBlank())
                 ? customerRepository.findAllByOrderByNameAsc()
-                : customerRepository.search(q.trim());
+                : customerRepository.search(escapeLike(q.trim()));
 
         return customers.stream().map(customerMapper::toResponse).toList();
 
@@ -56,6 +56,11 @@ public class CustomerService {
             throw new EntityInUseException(ENTITY_LABEL, customer.getName(), usages);
         }
         customerRepository.delete(customer);
+    }
+
+    /** Escapes LIKE wildcards, so a search for "50%" or "M_4" matches literally (escape character: backslash). */
+    private static String escapeLike(String term) {
+        return term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
     }
 
     private Customer findCustomer(Long id) {

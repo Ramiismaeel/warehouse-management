@@ -1,5 +1,5 @@
 import { ArrowLeft, FileQuestion, RotateCw, TriangleAlert } from "lucide-react"
-import type { ReactNode } from "react"
+import { useState, type ReactNode } from "react"
 import { Link, useNavigate, useParams } from "react-router"
 import { toast } from "sonner"
 
@@ -11,8 +11,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { DocumentActions } from "@/features/documents/components/DocumentActions"
 import { DocumentItemsTable } from "@/features/documents/components/DocumentItemsTable"
+import { ShortageAlert } from "@/features/documents/components/ShortageAlert"
 import {
-  isValidInboundDeliveryId,
   useCancelInboundDelivery,
   useConfirmInboundDelivery,
   useDeleteInboundDelivery,
@@ -20,16 +20,18 @@ import {
 } from "@/features/inbound/queries"
 import type { InboundDeliveryDetail } from "@/features/inbound/types"
 import { t } from "@/i18n/de"
+import type { ApiError } from "@/lib/errors"
 import { formatDate, formatNumber } from "@/lib/format"
+import { isValidId, parseIdParam } from "@/lib/ids"
 
 const text = t.inbound
 
 export function InboundDetailPage() {
-  const id = Number(useParams().id)
+  const id = parseIdParam(useParams().id)
   const delivery = useInboundDelivery(id)
 
   let content: ReactNode
-  if (!isValidInboundDeliveryId(id) || delivery.error?.status === 404) {
+  if (!isValidId(id) || delivery.error?.status === 404) {
     content = (
       <>
         <PageHeader title={text.detail.title} />
@@ -68,7 +70,8 @@ export function InboundDetailPage() {
       </>
     )
   } else {
-    content = <InboundDeliveryView delivery={delivery.data} />
+    // Keyed, so the failed-cancel box of one Wareneingang never shows on another.
+    content = <InboundDeliveryView key={delivery.data.id} delivery={delivery.data} />
   }
 
   return (
@@ -91,6 +94,9 @@ function InboundDeliveryView({ delivery }: { delivery: InboundDeliveryDetail }) 
   const navigate = useNavigate()
   const { id, number } = delivery
 
+  /** The 409 of the last Stornieren (stock would go negative), kept until hidden or the next successful action. */
+  const [failedCancel, setFailedCancel] = useState<ApiError | null>(null)
+
   return (
     <>
       <PageHeader
@@ -108,6 +114,7 @@ function InboundDeliveryView({ delivery }: { delivery: InboundDeliveryDetail }) 
             }}
             onCancel={async () => {
               await cancel.mutateAsync(id)
+              setFailedCancel(null)
               toast.success(text.detail.cancelled(number))
             }}
             onDelete={async () => {
@@ -115,9 +122,26 @@ function InboundDeliveryView({ delivery }: { delivery: InboundDeliveryDetail }) 
               toast.success(text.detail.deleted(number))
               await navigate("/wareneingang")
             }}
+            onError={(error, action) => {
+              if (action === "cancel" && error.shortages.length > 0) {
+                setFailedCancel(error)
+                return true
+              }
+              return false
+            }}
           />
         }
       />
+
+      {failedCancel && (
+        <ShortageAlert
+          variant="error"
+          title={failedCancel.detail}
+          description={t.documents.shortageAlert.failedCancelInDescription}
+          shortages={failedCancel.shortages}
+          onDismiss={() => setFailedCancel(null)}
+        />
+      )}
 
       <div className="grid gap-6 lg:grid-cols-[20rem_minmax(0,1fr)] lg:items-start">
         <Card>
@@ -134,7 +158,7 @@ function InboundDeliveryView({ delivery }: { delivery: InboundDeliveryDetail }) 
               </HeaderField>
               <HeaderField label={text.fields.supplierName}>{delivery.supplierName}</HeaderField>
               <HeaderField label={text.fields.deliveryDate}>
-                {delivery.deliveryDate ? formatDate(delivery.deliveryDate) : "–"}
+                {delivery.deliveryDate ? formatDate(delivery.deliveryDate) : t.common.missingValue}
               </HeaderField>
               <HeaderField label={text.fields.itemCount}>
                 {formatNumber(delivery.itemCount)}

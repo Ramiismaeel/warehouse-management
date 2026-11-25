@@ -12,11 +12,12 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
 
     List<Customer> findAllByOrderByNameAsc();
 
+    /** {@code q} must already be LIKE-escaped with {@code \} (CustomerService does that), so % and _ match literally. */
     @Query("""
             select c from Customer c
-            where lower(c.name)  like lower(concat('%', :q, '%'))
-               or lower(c.city)  like lower(concat('%', :q, '%'))
-               or lower(c.email) like lower(concat('%', :q, '%'))
+            where lower(c.name)  like lower(concat('%', :q, '%')) escape '\\'
+               or lower(c.city)  like lower(concat('%', :q, '%')) escape '\\'
+               or lower(c.email) like lower(concat('%', :q, '%')) escape '\\'
             order by c.name
             """)
     List<Customer> search(@Param("q") String q);

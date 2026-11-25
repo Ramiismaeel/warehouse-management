@@ -20,6 +20,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
+  useSidebar,
 } from "@/components/ui/sidebar"
 import { t } from "@/i18n/de"
 
@@ -38,13 +39,15 @@ const NAV_ITEMS: NavItem[] = [
 ]
 
 export function AppSidebar() {
+  const closeMobileSidebar = useCloseMobileSidebar()
+
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
-              <NavLink to="/">
+              <NavLink to="/" onClick={closeMobileSidebar}>
                 <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
                   <Warehouse className="size-4" />
                 </div>
@@ -79,16 +82,23 @@ export function AppSidebar() {
 /** Highlighted for its own path and all sub-paths (e.g. /artikel/neu), the dashboard only for "/". */
 function NavMenuItem({ item }: { item: NavItem }) {
   const isActive = useMatch({ path: item.to, end: item.to === "/" }) !== null
+  const closeMobileSidebar = useCloseMobileSidebar()
   const Icon = item.icon
 
   return (
     <SidebarMenuItem>
       <SidebarMenuButton asChild isActive={isActive} tooltip={item.label}>
-        <NavLink to={item.to}>
+        <NavLink to={item.to} onClick={closeMobileSidebar}>
           <Icon />
           <span>{item.label}</span>
         </NavLink>
       </SidebarMenuButton>
     </SidebarMenuItem>
   )
+}
+
+/** On mobile the sidebar is a Sheet over the page: close it once a link was clicked. */
+function useCloseMobileSidebar() {
+  const { setOpenMobile } = useSidebar()
+  return () => setOpenMobile(false)
 }

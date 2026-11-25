@@ -67,6 +67,14 @@ class CustomerServiceTest {
         verify(customerRepository, never()).findAllByOrderByNameAsc();
     }
 
+    @Test
+    void getAll_withLikeWildcardsInSearchTerm_escapesThem() {
+        // Input: 100% a_b c\d  ->  escaped: 100\% a\_b c\\d
+        when(customerRepository.search("100\\% a\\_b c\\\\d")).thenReturn(List.of(customer(1L, "100% a_b c\\d")));
+
+        assertThat(customerService.getAll("100% a_b c\\d")).hasSize(1);
+    }
+
     // ---------- getById ----------
 
     @Test

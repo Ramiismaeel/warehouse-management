@@ -12,9 +12,11 @@ import {
 } from "@/components/ui/input-group"
 import { ProductPicker } from "@/features/documents/components/ProductPicker"
 import { EMPTY_DOCUMENT_ITEM, type DocumentItemsFormValues } from "@/features/documents/schema"
+import type { DocumentItem } from "@/features/documents/types"
 import { useProducts } from "@/features/products/queries"
 import { t } from "@/i18n/de"
 import { formatNumber } from "@/lib/format"
+import { MAX_QUANTITY } from "@/lib/stock"
 import { cn } from "@/lib/utils"
 
 const text = t.documents.items
@@ -28,6 +30,11 @@ interface DocumentItemsEditorProps {
    * Only a warning: saving a draft still works, the backend checks stock on Bestätigen (business rule 3).
    */
   showAvailableStock?: boolean
+  /**
+   * Edit pages: SKU and name of the saved positions, shown in the pickers until the Artikel list
+   * has loaded (or when it failed), instead of the empty "Artikel wählen …".
+   */
+  fallbackProducts?: readonly Pick<DocumentItem, "productId" | "sku" | "name">[]
 }
 
 /**
@@ -36,7 +43,10 @@ interface DocumentItemsEditorProps {
  * Must be inside a react-hook-form <FormProvider> whose values extend DocumentItemsFormValues
  * and whose schema uses documentItemsSchema for `items`.
  */
-export function DocumentItemsEditor({ showAvailableStock = false }: DocumentItemsEditorProps) {
+export function DocumentItemsEditor({
+  showAvailableStock = false,
+  fallbackProducts,
+}: DocumentItemsEditorProps) {
   const {
     control,
     register,
@@ -49,6 +59,10 @@ export function DocumentItemsEditor({ showAvailableStock = false }: DocumentItem
   const productsById = useMemo(
     () => new Map((products.data ?? []).map((product) => [product.id, product])),
     [products.data],
+  )
+  const fallbacksById = useMemo(
+    () => new Map((fallbackProducts ?? []).map((product) => [product.productId, product])),
+    [fallbackProducts],
   )
   const chosenProductIds = items
     .map((item) => item.productId)
@@ -80,7 +94,7 @@ export function DocumentItemsEditor({ showAvailableStock = false }: DocumentItem
           <div key={field.id} className={ROW_GRID}>
             <Field data-invalid={Boolean(itemErrors?.productId)} className="gap-1.5">
               <FieldLabel htmlFor={productInputId} className="sm:sr-only">
-                {text.product}
+                {text.productNamed(index + 1)}
               </FieldLabel>
               <Controller
                 control={control}
@@ -93,6 +107,11 @@ export function DocumentItemsEditor({ showAvailableStock = false }: DocumentItem
                     onBlur={productField.onBlur}
                     invalid={fieldState.invalid}
                     disabledProductIds={chosenProductIds}
+                    fallbackProduct={
+                      productField.value !== null
+                        ? fallbacksById.get(productField.value)
+                        : undefined
+                    }
                   />
                 )}
               />
@@ -113,7 +132,7 @@ export function DocumentItemsEditor({ showAvailableStock = false }: DocumentItem
 
             <Field data-invalid={Boolean(itemErrors?.quantity)} className="gap-1.5">
               <FieldLabel htmlFor={quantityInputId} className="sm:sr-only">
-                {text.quantity}
+                {text.quantityNamed(index + 1)}
               </FieldLabel>
               <InputGroup>
                 <InputGroupInput
@@ -121,6 +140,7 @@ export function DocumentItemsEditor({ showAvailableStock = false }: DocumentItem
                   type="number"
                   inputMode="numeric"
                   min={1}
+                  max={MAX_QUANTITY}
                   step={1}
                   aria-invalid={Boolean(itemErrors?.quantity)}
                   {...register(`items.${index}.quantity`, { valueAsNumber: true })}

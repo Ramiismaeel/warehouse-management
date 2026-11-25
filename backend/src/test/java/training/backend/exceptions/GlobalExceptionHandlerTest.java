@@ -4,13 +4,17 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import training.backend.document.DocumentStatus;
 
@@ -55,6 +59,30 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    void unknownEnumValueInQueryParameter_returns400WithGermanDetail() throws Exception {
+        mockMvc.perform(get("/test/status").param("status", "FOO"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.title").value("Ungültige Eingabe"))
+                .andExpect(jsonPath("$.detail").value("Ungültiger Wert „FOO“ für Parameter „status“."));
+    }
+
+    @Test
+    void textInNumericPathVariable_returns400WithGermanDetail() throws Exception {
+        mockMvc.perform(get("/test/items/abc"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.title").value("Ungültige Eingabe"))
+                .andExpect(jsonPath("$.detail").value("Ungültiger Wert „abc“ für Parameter „id“."));
+    }
+
+    @Test
+    void missingRequiredQueryParameter_returns400WithGermanDetail() throws Exception {
+        mockMvc.perform(get("/test/status"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.title").value("Ungültige Eingabe"))
+                .andExpect(jsonPath("$.detail").value("Der Parameter „status“ fehlt."));
+    }
+
+    @Test
     void notFound_returns404() throws Exception {
         mockMvc.perform(get("/test/not-found"))
                 .andExpect(status().isNotFound())
@@ -92,6 +120,23 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    void optimisticLock_returns409() throws Exception {
+        mockMvc.perform(get("/test/optimistic-lock"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.title").value("Gleichzeitige Änderung"))
+                .andExpect(jsonPath("$.detail").value("Der Bestand wurde gleichzeitig geändert. Bitte erneut versuchen."));
+    }
+
+    @Test
+    void dataIntegrityViolation_returns409WithoutInternals() throws Exception {
+        mockMvc.perform(get("/test/data-integrity"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.title").value("Aktion nicht möglich"))
+                .andExpect(jsonPath("$.detail").value(
+                        "Die Aktion verstößt gegen eine Datenregel, z. B. weil ein Datensatz noch verwendet wird."));
+    }
+
+    @Test
     void unexpectedError_returns500WithoutInternals() throws Exception {
         mockMvc.perform(get("/test/boom"))
                 .andExpect(status().isInternalServerError())
@@ -108,6 +153,24 @@ class GlobalExceptionHandlerTest {
 
         @PostMapping("/validate")
         void validate(@Valid @RequestBody NameRequest request) {
+        }
+
+        @GetMapping("/status")
+        void status(@RequestParam("status") DocumentStatus status) {
+        }
+
+        @GetMapping("/items/{id}")
+        void item(@PathVariable("id") Long id) {
+        }
+
+        @GetMapping("/optimistic-lock")
+        void optimisticLock() {
+            throw new OptimisticLockingFailureException("Row was updated or deleted by another transaction");
+        }
+
+        @GetMapping("/data-integrity")
+        void dataIntegrity() {
+            throw new DataIntegrityViolationException("FK constraint fk_inbound_delivery_item_product violated");
         }
 
         @GetMapping("/not-found")

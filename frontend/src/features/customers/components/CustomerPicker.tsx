@@ -25,6 +25,8 @@ interface CustomerPickerProps {
   onBlur?: () => void
   invalid?: boolean
   className?: string
+  /** Name shown for `value` while the customers are not loaded (or failed), e.g. the saved Kunde on an edit page. */
+  fallbackLabel?: string
 }
 
 /** Searchable customer combobox (name or Ort) that shows PLZ + Ort under each name. Loads the customers itself. */
@@ -35,6 +37,7 @@ export function CustomerPicker({
   onBlur,
   invalid = false,
   className,
+  fallbackLabel,
 }: CustomerPickerProps) {
   const customers = useCustomers()
   const [open, setOpen] = useState(false)
@@ -43,7 +46,14 @@ export function CustomerPicker({
     () => [...(customers.data ?? [])].sort((a, b) => a.name.localeCompare(b.name, "de")),
     [customers.data],
   )
-  const selected = sortedCustomers.find((customer) => customer.id === value)
+  const selectedName =
+    sortedCustomers.find((customer) => customer.id === value)?.name ??
+    (value !== null ? fallbackLabel : undefined)
+
+  let triggerText: string = selectedName ?? text.placeholder
+  if (selectedName === undefined && value !== null && customers.isPending) {
+    triggerText = text.loading
+  }
 
   let emptyText: string = text.noResults
   if (customers.isPending) {
@@ -65,11 +75,11 @@ export function CustomerPicker({
           onBlur={onBlur}
           className={cn(
             "w-full justify-between font-normal",
-            !selected && "text-muted-foreground",
+            selectedName === undefined && "text-muted-foreground",
             className,
           )}
         >
-          <span className="truncate">{selected ? selected.name : text.placeholder}</span>
+          <span className="truncate">{triggerText}</span>
           <ChevronsUpDown className="opacity-50" />
         </Button>
       </PopoverTrigger>

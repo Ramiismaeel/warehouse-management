@@ -3,6 +3,7 @@ package training.backend.exceptions;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.TypeMismatchException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpHeaders;
@@ -12,9 +13,11 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 import java.util.LinkedHashMap;
@@ -53,6 +56,27 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             HttpMessageNotReadableException ex, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
         ProblemDetail problem = problem(HttpStatus.BAD_REQUEST, "Ungültige Eingabe",
                 "Die Anfrage konnte nicht gelesen werden. Bitte prüfen Sie das Format der Daten.");
+        return ResponseEntity.status(status).headers(headers).body(problem);
+    }
+
+    /** A query/path parameter has the wrong type, e.g. {@code ?status=FOO} or {@code /products/abc}. */
+    @Override
+    protected ResponseEntity<Object> handleTypeMismatch(
+            TypeMismatchException ex, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+        String name = ex instanceof MethodArgumentTypeMismatchException mismatch ? mismatch.getName() : ex.getPropertyName();
+        String detail = name == null
+                ? "Ein Parameter hat einen ungültigen Wert."
+                : "Ungültiger Wert „%s“ für Parameter „%s“.".formatted(ex.getValue(), name);
+        ProblemDetail problem = problem(HttpStatus.BAD_REQUEST, "Ungültige Eingabe", detail);
+        return ResponseEntity.status(status).headers(headers).body(problem);
+    }
+
+    /** A required query parameter is missing. */
+    @Override
+    protected ResponseEntity<Object> handleMissingServletRequestParameter(
+            MissingServletRequestParameterException ex, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+        ProblemDetail problem = problem(HttpStatus.BAD_REQUEST, "Ungültige Eingabe",
+                "Der Parameter „%s“ fehlt.".formatted(ex.getParameterName()));
         return ResponseEntity.status(status).headers(headers).body(problem);
     }
 

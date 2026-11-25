@@ -31,7 +31,7 @@ public class StockService {
                 .collect(Collectors.toMap(
                         StockChange::productId,
                         StockChange::quantity,
-                        Integer::sum,
+                        Math::addExact, // fails loudly instead of overflowing
                         LinkedHashMap::new));
 
         Map<Long , Product> products = productRepository.findAllById(totals.keySet()).stream()

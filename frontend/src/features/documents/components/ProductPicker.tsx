@@ -29,6 +29,8 @@ interface ProductPickerProps {
   disabledProductIds?: readonly number[]
   invalid?: boolean
   className?: string
+  /** Shown for `value` while the products are not loaded (or failed), e.g. the saved position on an edit page. */
+  fallbackProduct?: { sku: string; name: string }
 }
 
 /** Searchable product combobox (SKU or name) that shows each product's current Bestand. Loads the products itself. */
@@ -40,6 +42,7 @@ export function ProductPicker({
   disabledProductIds = [],
   invalid = false,
   className,
+  fallbackProduct,
 }: ProductPickerProps) {
   const products = useProducts()
   const [open, setOpen] = useState(false)
@@ -48,7 +51,9 @@ export function ProductPicker({
     () => [...(products.data ?? [])].sort((a, b) => a.sku.localeCompare(b.sku, "de")),
     [products.data],
   )
-  const selected = sortedProducts.find((product) => product.id === value)
+  const selected =
+    sortedProducts.find((product) => product.id === value) ??
+    (value !== null ? fallbackProduct : undefined)
   const disabledIds = new Set(disabledProductIds)
 
   let emptyText: string = text.noResults
@@ -80,6 +85,8 @@ export function ProductPicker({
               <span className="font-mono text-xs text-muted-foreground">{selected.sku}</span>{" "}
               {selected.name}
             </span>
+          ) : value !== null && products.isPending ? (
+            text.loading
           ) : (
             text.placeholder
           )}

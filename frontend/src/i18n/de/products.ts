@@ -6,6 +6,13 @@ export const products = {
     empty: "Noch keine Artikel",
     emptyDescription: "Lege den ersten Artikel an.",
     loadError: "Artikel konnten nicht geladen werden",
+    emptyFiltered: "Keine Artikel mit diesem Bestand",
+  },
+  stockFilter: {
+    label: "Nach Bestand filtern",
+    all: "Alle",
+    LOW: "Niedriger Bestand",
+    EMPTY: "Leer",
   },
   create: {
     title: "Neuer Artikel",
@@ -50,6 +57,7 @@ export const products = {
     minQuantityRequired: "Bitte einen Mindestbestand angeben.",
     minQuantityInteger: "Der Mindestbestand muss eine ganze Zahl sein.",
     minQuantityMin: "Der Mindestbestand darf nicht negativ sein.",
+    minQuantityMax: "Der Mindestbestand darf höchstens 1.000.000 sein.",
     imageUrlMax: "Die Bild-URL darf höchstens 500 Zeichen lang sein.",
     imageUrlInvalid: "Bitte eine gültige URL mit http:// oder https:// angeben.",
   },

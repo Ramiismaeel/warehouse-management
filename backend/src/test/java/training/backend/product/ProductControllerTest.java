@@ -56,13 +56,25 @@ class ProductControllerTest {
 
     @Test
     void getAll_returns200WithArray() throws Exception {
-        when(productService.getAll()).thenReturn(List.of(response(1L, "A-1001"), response(2L, "A-1002")));
+        when(productService.getAll(null)).thenReturn(List.of(response(1L, "A-1001"), response(2L, "A-1002")));
 
         mockMvc.perform(get(BASE))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(2))
                 .andExpect(jsonPath("$[0].sku").value("A-1001"))
                 .andExpect(jsonPath("$[1].sku").value("A-1002"));
+    }
+
+    @Test
+    void getAll_withSearchTerm_passesItToService() throws Exception {
+        when(productService.getAll("schraube")).thenReturn(List.of(response(1L, "A-1001")));
+
+        mockMvc.perform(get(BASE).param("q", "schraube"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].sku").value("A-1001"));
+
+        verify(productService).getAll("schraube");
     }
 
     // ---------- GET detail ----------
@@ -137,6 +149,26 @@ class ProductControllerTest {
                 .andExpect(jsonPath("$.errors.name").exists())
                 .andExpect(jsonPath("$.errors.minQuantity").exists())
                 .andExpect(jsonPath("$.errors.imageUrl").exists());
+
+        verifyNoInteractions(productService);
+    }
+
+    @Test
+    void create_whenMinQuantityTooLarge_returns400WithGermanMessage() throws Exception {
+        String body = VALID_BODY.replace("\"minQuantity\": 5", "\"minQuantity\": 1000001");
+
+        mockMvc.perform(post(BASE).contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.minQuantity").value("Mindestbestand darf höchstens 1.000.000 sein"));
+
+        verifyNoInteractions(productService);
+    }
+
+    @Test
+    void getById_whenIdNotANumber_returns400() throws Exception {
+        mockMvc.perform(get(BASE + "/abc"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value("Ungültiger Wert „abc“ für Parameter „id“."));
 
         verifyNoInteractions(productService);
     }

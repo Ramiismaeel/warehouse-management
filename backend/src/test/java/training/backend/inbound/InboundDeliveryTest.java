@@ -45,6 +45,15 @@ class InboundDeliveryTest {
     }
 
     @Test
+    void addItemMergeBeyondIntRangeIsRejected() {
+        InboundDelivery delivery = newDraft();
+        delivery.addItem(product(1L), Integer.MAX_VALUE);
+
+        assertThrows(ArithmeticException.class, () -> delivery.addItem(product(1L), 1));
+        assertEquals(Integer.MAX_VALUE, delivery.getItems().getFirst().getQuantity());
+    }
+
+    @Test
     void addItemRejectsZeroOrNegativeQuantity() {
         InboundDelivery delivery = newDraft();
 

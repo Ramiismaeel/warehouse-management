@@ -25,6 +25,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -90,7 +91,66 @@ class OutboundOrderControllerTest {
                 .andExpect(jsonPath("$.detail").value("Kunde mit ID 3 wurde nicht gefunden."));
     }
 
+    @Test
+    void create_withNullItem_returns400() throws Exception {
+        mockMvc.perform(post(BASE).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"customerId\": 3, \"items\": [null]}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors['items[0]']").value("Position darf nicht leer sein"));
+
+        verifyNoInteractions(outboundOrderService);
+    }
+
+    @Test
+    void create_withQuantityTooLarge_returns400() throws Exception {
+        mockMvc.perform(post(BASE).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"customerId\": 3, \"items\": [{\"productId\": 7, \"quantity\": 1000001}]}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors['items[0].quantity']").value("Menge darf höchstens 1.000.000 sein"));
+
+        verifyNoInteractions(outboundOrderService);
+    }
+
+    // ---------- detail ----------
+
+    @Test
+    void getById_whenUnknownId_returns404() throws Exception {
+        when(outboundOrderService.getById(99L)).thenThrow(new NotFoundException("Warenausgang", 99L));
+
+        mockMvc.perform(get(BASE + "/99"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.detail").value("Warenausgang mit ID 99 wurde nicht gefunden."));
+    }
+
     // ---------- update / delete ----------
+
+    @Test
+    void update_whenInvalid_returns400() throws Exception {
+        mockMvc.perform(put(BASE + "/1").contentType(MediaType.APPLICATION_JSON).content("{\"items\": []}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.customerId").value("Kunde ist erforderlich"))
+                .andExpect(jsonPath("$.errors.items").value("Mindestens eine Position ist erforderlich"));
+
+        verifyNoInteractions(outboundOrderService);
+    }
+
+    @Test
+    void update_whenUnknownId_returns404() throws Exception {
+        when(outboundOrderService.update(eq(99L), any(OutboundOrderRequest.class)))
+                .thenThrow(new NotFoundException("Warenausgang", 99L));
+
+        mockMvc.perform(put(BASE + "/99").contentType(MediaType.APPLICATION_JSON).content(VALID_BODY))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.detail").value("Warenausgang mit ID 99 wurde nicht gefunden."));
+    }
+
+    @Test
+    void delete_whenUnknownId_returns404() throws Exception {
+        doThrow(new NotFoundException("Warenausgang", 99L)).when(outboundOrderService).delete(99L);
+
+        mockMvc.perform(delete(BASE + "/99"))
+                .andExpect(status().isNotFound());
+    }
 
     @Test
     void update_whenNotDraft_returns409() throws Exception {

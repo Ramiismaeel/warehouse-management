@@ -14,7 +14,7 @@ import {
   Search,
   SearchX,
 } from "lucide-react"
-import type { ReactNode } from "react"
+import { useEffect, useLayoutEffect, type ReactNode } from "react"
 
 import { EmptyState } from "@/components/shared/EmptyState"
 import {
@@ -62,6 +62,11 @@ interface DataTableProps<TData extends RowData> {
   emptyState?: ReactNode
   /** E.g. newest document first: [{ id: "number", desc: true }]. */
   initialSorting?: SortingState
+  /**
+   * Back to page 1 whenever this changes, e.g. the status filter of the page.
+   * A refetch (new `data`, e.g. after a delete) keeps the page.
+   */
+  pageResetKey?: unknown
 }
 
 /**
@@ -79,6 +84,7 @@ export function DataTable<TData extends RowData>({
   searchPlaceholder = t.common.table.search,
   emptyState,
   initialSorting = [],
+  pageResetKey,
 }: DataTableProps<TData>) {
   const table = useTable({
     features: dataTableFeatures,
@@ -89,15 +95,33 @@ export function DataTable<TData extends RowData>({
       globalFilter: "",
       pagination: { pageIndex: 0, pageSize: PAGE_SIZES[0] },
     },
+    // A refetch (e.g. after deleting a row) must not jump back to page 1. Searching resets it
+    // explicitly (see the search box), a shrinking list is clamped below.
+    autoResetPageIndex: false,
     globalFilterFn: "includesString",
     getColumnCanGlobalFilter: (column) => searchColumns.includes(column.id),
   })
 
   const searchQuery = String(table.state.globalFilter ?? "")
   const { pageIndex, pageSize } = table.state.pagination
+  const pageCount = table.getPageCount()
   const rows = table.getRowModel().rows
   const columnCount = table.getAllLeafColumns().length
   const hasData = (data?.length ?? 0) > 0
+  // A stable function of the table instance (the object useTable returns is new on every render).
+  const { setPageIndex } = table
+
+  // E.g. the only row of the last page was deleted: show the new last page instead of an empty one.
+  // Layout effect, so the empty page never flashes.
+  useLayoutEffect(() => {
+    if (pageIndex > 0 && pageIndex >= pageCount) {
+      setPageIndex(Math.max(pageCount - 1, 0))
+    }
+  }, [setPageIndex, pageIndex, pageCount])
+
+  useEffect(() => {
+    setPageIndex(0)
+  }, [setPageIndex, pageResetKey])
 
   return (
     <div className="flex flex-col gap-4">
@@ -109,7 +133,10 @@ export function DataTable<TData extends RowData>({
           <InputGroupInput
             type="search"
             value={searchQuery}
-            onChange={(event) => table.setGlobalFilter(event.target.value)}
+            onChange={(event) => {
+              table.setGlobalFilter(event.target.value)
+              setPageIndex(0)
+            }}
             placeholder={searchPlaceholder}
             aria-label={searchPlaceholder}
             disabled={isLoading}
@@ -198,7 +225,7 @@ export function DataTable<TData extends RowData>({
             <span>
               {t.common.table.pageOf(
                 formatNumber(pageIndex + 1),
-                formatNumber(Math.max(table.getPageCount(), 1)),
+                formatNumber(Math.max(pageCount, 1)),
               )}
             </span>
             <div className="flex items-center gap-1">

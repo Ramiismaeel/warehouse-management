@@ -148,6 +148,24 @@ class InboundDeliveryServiceTest {
         assertEquals("TEST-0001", reloaded.items().getFirst().sku());
     }
 
+    @Test
+    void update_whenCancelled_rejectsAndChangesNothing() {
+        InboundDeliveryDetailResponse created = service.create(request("Müller GmbH", new InboundDeliveryItemRequest(schraube, 5)));
+        confirm(created.id());
+        service.cancel(created.id());
+        repository.flush();
+
+        InvalidStatusTransitionException ex = assertThrows(InvalidStatusTransitionException.class, () ->
+                service.update(created.id(), request("Schmidt AG", new InboundDeliveryItemRequest(mutter, 1))));
+
+        assertEquals("„Bearbeiten“ ist im Status „Storniert“ nicht möglich.", ex.getMessage());
+        entityManager.clear();
+        InboundDeliveryDetailResponse reloaded = service.getById(created.id());
+        assertEquals("Müller GmbH", reloaded.supplierName());
+        assertEquals("TEST-0001", reloaded.items().getFirst().sku());
+        assertEquals(DocumentStatus.CANCELLED, reloaded.status());
+    }
+
     // ---------- delete ----------
 
     @Test
@@ -171,6 +189,24 @@ class InboundDeliveryServiceTest {
 
         assertThrows(InvalidStatusTransitionException.class, () -> service.delete(created.id()));
         assertTrue(repository.existsById(created.id()));
+    }
+
+    @Test
+    void delete_whenCancelled_rejects() {
+        InboundDeliveryDetailResponse created = service.create(request("Müller GmbH", new InboundDeliveryItemRequest(schraube, 5)));
+        confirm(created.id());
+        service.cancel(created.id());
+
+        InvalidStatusTransitionException ex = assertThrows(InvalidStatusTransitionException.class,
+                () -> service.delete(created.id()));
+
+        assertEquals("„Löschen“ ist im Status „Storniert“ nicht möglich.", ex.getMessage());
+        assertTrue(repository.existsById(created.id()));
+    }
+
+    @Test
+    void delete_whenUnknownId_throwsNotFound() {
+        assertThrows(NotFoundException.class, () -> service.delete(999_999L));
     }
 
     // ---------- confirm ----------

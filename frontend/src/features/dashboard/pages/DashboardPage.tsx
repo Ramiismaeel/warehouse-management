@@ -9,6 +9,7 @@ import { LowStockCard } from "@/features/dashboard/components/LowStockCard"
 import { RecentDocumentsCard } from "@/features/dashboard/components/RecentDocumentsCard"
 import { useDashboard } from "@/features/dashboard/queries"
 import type { Dashboard } from "@/features/dashboard/types"
+import { productListWithStockFilter } from "@/features/products/useStockFilterParam"
 import { t } from "@/i18n/de"
 import { formatNumber } from "@/lib/format"
 
@@ -18,7 +19,10 @@ export function DashboardPage() {
   const dashboard = useDashboard()
 
   let content
-  if (dashboard.isError) {
+  if (dashboard.data) {
+    // Also when a background refetch failed: the last loaded numbers are better than an error.
+    content = <DashboardContent data={dashboard.data} />
+  } else if (dashboard.isError) {
     content = (
       <EmptyState
         icon={TriangleAlert}
@@ -32,10 +36,8 @@ export function DashboardPage() {
         }
       />
     )
-  } else if (dashboard.isPending) {
-    content = <DashboardSkeleton />
   } else {
-    content = <DashboardContent data={dashboard.data} />
+    content = <DashboardSkeleton />
   }
 
   return (
@@ -68,7 +70,7 @@ function DashboardContent({ data }: { data: Dashboard }) {
           hint={text.kpis.lowStockHint}
           icon={TriangleAlert}
           tone="warning"
-          to="/artikel"
+          to={productListWithStockFilter("LOW")}
         />
         <KpiCard
           label={text.kpis.outOfStock}
@@ -76,7 +78,7 @@ function DashboardContent({ data }: { data: Dashboard }) {
           hint={text.kpis.outOfStockHint}
           icon={CircleSlash}
           tone="danger"
-          to="/artikel"
+          to={productListWithStockFilter("EMPTY")}
         />
         <KpiCard
           label={text.kpis.openDrafts}

@@ -9,17 +9,19 @@ import jakarta.validation.constraints.Size;
 import java.time.LocalDate;
 import java.util.List;
 
+/** Create/update a Wareneingang draft. deliveryDate defaults to today; duplicate products are merged. */
 public record InboundDeliveryRequest(
-        @NotBlank
+        @NotBlank(message = "Lieferant ist erforderlich")
+        @Size(max = 255, message = "Lieferant darf höchstens 255 Zeichen lang sein")
         String supplierName,
 
 
         LocalDate deliveryDate,
 
-        @Size(max = 255)
+        @Size(max = 255, message = "Notiz darf höchstens 255 Zeichen lang sein")
         String note,
 
-        @NotEmpty
-        List<@Valid InboundDeliveryItemRequest> items
+        @NotEmpty(message = "Mindestens eine Position ist erforderlich")
+        List<@NotNull(message = "Position darf nicht leer sein") @Valid InboundDeliveryItemRequest> items
 ) {
 }

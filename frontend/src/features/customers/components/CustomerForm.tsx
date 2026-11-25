@@ -3,6 +3,7 @@ import { LoaderCircle } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { Link } from "react-router"
 
+import { UnsavedChangesGuard } from "@/components/shared/UnsavedChangesGuard"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader } from "@/components/ui/card"
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
@@ -36,7 +37,7 @@ export function CustomerForm({ defaultValues, onSubmit }: CustomerFormProps) {
   const {
     register,
     setError,
-    formState: { errors, isSubmitting },
+    formState: { errors, isDirty, isSubmitting },
   } = form
 
   const submit = form.handleSubmit(async (request) => {
@@ -52,6 +53,7 @@ export function CustomerForm({ defaultValues, onSubmit }: CustomerFormProps) {
 
   return (
     <form onSubmit={submit} noValidate className="max-w-3xl">
+      <UnsavedChangesGuard when={isDirty && !isSubmitting} />
       <Card>
         <CardHeader>
           <CardDescription>{text.form.optional}</CardDescription>

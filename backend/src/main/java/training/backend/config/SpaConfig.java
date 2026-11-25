@@ -11,6 +11,7 @@ import java.io.IOException;
 /**
  * Serves the React build from {@code classpath:/static/} (copied there by the deploy workflow).
  * Unknown paths fall back to {@code index.html}, so React Router handles deep links like {@code /artikel/5}.
+ * Missing files (last path segment has an extension, e.g. {@code /assets/old.js}) stay a 404.
  * Backend paths never fall back: an unknown {@code /api/...} or {@code /actuator/...} path stays a 404.
  * {@code /} itself is forwarded to {@code index.html} by Spring Boot's welcome page handling.
  * Controllers, Swagger UI and the H2 console have their own, more specific mappings and are not affected.
@@ -38,7 +39,18 @@ public class SpaConfig implements WebMvcConfigurer {
             }
             // super checks that the file exists, is readable and lies inside the static folder.
             Resource requested = super.getResource(resourcePath, location);
-            return requested != null ? requested : super.getResource(INDEX_HTML, location);
+            if (requested != null) {
+                return requested;
+            }
+            // A missing file like /assets/index-abc123.js (stale after a deploy) stays a 404:
+            // answering it with index.html would make the browser run HTML as JavaScript.
+            return hasFileExtension(resourcePath) ? null : super.getResource(INDEX_HTML, location);
+        }
+
+        /** True for "assets/app.js" or "favicon.ico", false for React routes like "artikel/5/bearbeiten". */
+        private static boolean hasFileExtension(String resourcePath) {
+            String lastSegment = resourcePath.substring(resourcePath.lastIndexOf('/') + 1);
+            return lastSegment.contains(".");
         }
     }
 }

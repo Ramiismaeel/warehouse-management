@@ -7,15 +7,16 @@ import { EmptyState } from "@/components/shared/EmptyState"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { CustomerForm } from "@/features/customers/components/CustomerForm"
-import { isValidCustomerId, useCustomer, useUpdateCustomer } from "@/features/customers/queries"
+import { useCustomer, useUpdateCustomer } from "@/features/customers/queries"
 import { toCustomerFormValues } from "@/features/customers/schema"
 import type { CustomerRequest } from "@/features/customers/types"
 import { t } from "@/i18n/de"
+import { isValidId, parseIdParam } from "@/lib/ids"
 
 const text = t.customers
 
 export function CustomerEditPage() {
-  const id = Number(useParams().id)
+  const id = parseIdParam(useParams().id)
   const customer = useCustomer(id)
   const updateCustomer = useUpdateCustomer()
   const navigate = useNavigate()
@@ -27,7 +28,7 @@ export function CustomerEditPage() {
   }
 
   let content
-  if (!isValidCustomerId(id) || customer.error?.status === 404) {
+  if (!isValidId(id) || customer.error?.status === 404) {
     content = (
       <EmptyState
         icon={FileQuestion}

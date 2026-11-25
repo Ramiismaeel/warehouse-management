@@ -66,7 +66,7 @@ const COLUMNS = column.columns([
   column.display({
     id: "image",
     header: "",
-    cell: ({ row }) => <ProductImage sku={row.original.sku} alt={row.original.name} />,
+    cell: ({ row }) => <ProductImage sku={row.original.sku} alt="" />,
   }),
   column.accessor("sku", { header: "SKU" }),
   column.accessor("name", { header: "Name" }),

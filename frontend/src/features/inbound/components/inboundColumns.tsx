@@ -9,9 +9,6 @@ import { formatDate, formatNumber } from "@/lib/format"
 const column = createDataTableColumnHelper<InboundDeliverySummary>()
 const text = t.inbound.fields
 
-/** Shown when a Wareneingang has no Lieferdatum. */
-const MISSING = "–"
-
 /** Columns of the Wareneingang list. The number links to the detail page. */
 export const INBOUND_COLUMNS = column.columns([
   column.accessor("number", {
@@ -37,7 +34,7 @@ export const INBOUND_COLUMNS = column.columns([
       getValue() ? (
         formatDate(getValue())
       ) : (
-        <span className="text-muted-foreground">{MISSING}</span>
+        <span className="text-muted-foreground">{t.common.missingValue}</span>
       ),
     meta: { className: "whitespace-nowrap" },
   }),

@@ -181,12 +181,14 @@ from `StockService` (rule 1).
 - `dev` (default): H2 in-memory, PostgreSQL mode, `ddl-auto=create-drop`, seeds from `data/*.sql`
   (`spring.sql.init.data-locations`, `spring.jpa.defer-datasource-initialization=true`). Data resets on restart.
 - `postgres`: local PostgreSQL, env vars with defaults (`DB_URL` → `jdbc:postgresql://localhost:5432/warehouse`,
-  `DB_USER` → `postgres`), `ddl-auto=create`, seeds always run.
+  `DB_USER` → `postgres`), `ddl-auto=validate` (tables come from `schema.sql`), **no seed data** — the data
+  persists across restarts.
 - `prod`: PostgreSQL on Neon via env vars `DB_URL`, `DB_USER`, `DB_PASSWORD` (no defaults), schema by Flyway
   (`db/migration`), `ddl-auto=validate`, no seed data. Details in the v1.1 section.
 - `test` (`src/test/resources/application-test.properties`): disables SQL init; activate with `@ActiveProfiles("test")`.
-- Hibernate creates the tables before `schema.sql` runs, so its `CREATE TABLE IF NOT EXISTS` statements are no-ops in
-  `dev`/`postgres`. Still keep entities and `schema.sql` in sync — `prod` validates against the real schema.
+- In `dev`, Hibernate creates the tables before `schema.sql` runs, so its `CREATE TABLE IF NOT EXISTS` statements are
+  no-ops there. In `postgres`, `schema.sql` creates the tables and Hibernate only validates them. Keep entities,
+  `schema.sql` and the migrations in sync — `postgres` and `prod` validate against the real schema.
 - Shared settings (`application.properties`): `open-in-view=false`, default profile `dev`, CORS origin
   `http://localhost:5173`.
 - **Portability rules for seed SQL:** standard SQL only, explicit column lists, **no explicit IDs** in INSERTs
@@ -236,8 +238,9 @@ frontend/src/
 ├─ api/                  client.ts (axios instance, baseURL /api/v1, ApiError), queryClient.ts
 ├─ components/
 │  ├─ ui/                shadcn components (generated via CLI)
-│  ├─ layout/            AppLayout, AppSidebar, PageHeader
-│  └─ shared/            DataTable, ConfirmDialog, StatusBadge, StockBadge, EmptyState, ProductImage
+│  ├─ layout/            AppLayout, AppSidebar, PageHeader, DocumentTitle, NotFoundPage, RouteErrorPage, PageLoading
+│  └─ shared/            DataTable, ConfirmDialog, StatusBadge, StockBadge, EmptyState, ProductImage, DatePicker,
+│                        UnsavedChangesGuard
 ├─ features/
 │  ├─ products/          api.ts, queries.ts, types.ts, schema.ts, pages/, components/
 │  ├─ customers/         (same shape)
@@ -246,7 +249,7 @@ frontend/src/
 │  ├─ outbound/          (same shape)
 │  └─ dashboard/
 ├─ i18n/de/              common.ts, products.ts, customers.ts, inbound.ts, outbound.ts, dashboard.ts, index.ts
-└─ lib/                  utils.ts (cn), format.ts (de-DE dates/numbers), errors.ts
+└─ lib/                  utils.ts (cn), format.ts (de-DE dates/numbers), errors.ts, stock.ts, ids.ts (route id parsing)
 ```
 
 **Routes:** `/` Dashboard · `/artikel`, `/artikel/neu`, `/artikel/:id/bearbeiten` · `/kunden`, `/kunden/neu`,
@@ -366,7 +369,8 @@ GitHub push → .github/workflows/deploy.yml: build frontend → build backend (
 | `APP_USERNAME`, `APP_PASSWORD` (on hold, WM-41) | `admin` / `admin` | Render |
 
 GitHub secrets: `DOCKERHUB_USERNAME`, `DOCKERHUB_PASSWORD` (Docker Hub access token), `DOCKERHUB_TAG`
-(e.g. `<user>/warehouse-management:latest`), `RENDER_DEPLOY_HOOK`.
+(e.g. `<user>/warehouse-management:latest`), `RENDER_DEPLOY_HOOK`, optional `RENDER_DEPLOY_HOOK_URL_2` (second
+Render service; the step is skipped when it is not set).
 
 **Commands**
 - Run `prod` locally against Neon: set `DB_URL`, `DB_USER`, `DB_PASSWORD` in the terminal, then

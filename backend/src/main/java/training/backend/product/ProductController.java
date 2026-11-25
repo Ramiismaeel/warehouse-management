@@ -20,8 +20,8 @@ public class ProductController {
     private final ProductService productService;
 
     @GetMapping
-    public List<ProductResponse> getAll() {
-        return productService.getAll();
+    public List<ProductResponse> getAll(@RequestParam(required = false) String q) {
+        return productService.getAll(q);
     }
 
     @GetMapping("/{id}")

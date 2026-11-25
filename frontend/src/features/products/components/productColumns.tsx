@@ -16,11 +16,7 @@ export function createProductColumns(onDelete: (product: Product) => void) {
       id: "image",
       header: () => <span className="sr-only">{text.columns.image}</span>,
       cell: ({ row }) => (
-        <ProductImage
-          sku={row.original.sku}
-          imageUrl={row.original.imageUrl}
-          alt={row.original.name}
-        />
+        <ProductImage sku={row.original.sku} imageUrl={row.original.imageUrl} alt="" />
       ),
       meta: { className: "w-14" },
     }),

@@ -55,13 +55,14 @@ public class OutboundOrderService {
         request.items().forEach(item -> order.addItem(loadProduct(item.productId()), item.quantity()));
 
         OutboundOrder saved = outboundOrderRepository.save(order);
-        saved.setOrderNumber(DocumentNumberGenerator.format("WA", Year.now().getValue(), saved.getId()));
+        saved.setOrderNumber(DocumentNumberGenerator.format(
+                "WA", Year.now(DocumentNumberGenerator.BUSINESS_ZONE).getValue(), saved.getId()));
         return outboundOrderMapper.toDetailResponse(saved);
     }
 
     @Transactional
     public OutboundOrderDetailResponse update(Long id, OutboundOrderRequest request) {
-        OutboundOrder order = findById(id);
+        OutboundOrder order = findByIdForUpdate(id);
         if (!order.getStatus().canEdit()) {
             throw new InvalidStatusTransitionException("Bearbeiten", order.getStatus());
         }
@@ -75,7 +76,7 @@ public class OutboundOrderService {
 
     @Transactional
     public void delete(Long id) {
-        OutboundOrder order = findById(id);
+        OutboundOrder order = findByIdForUpdate(id);
         if (!order.getStatus().canEdit()) {
             throw new InvalidStatusTransitionException("Löschen", order.getStatus());
         }
@@ -88,7 +89,7 @@ public class OutboundOrderService {
      */
     @Transactional
     public OutboundOrderDetailResponse confirm(Long id) {
-        OutboundOrder order = findById(id);
+        OutboundOrder order = findByIdForUpdate(id);
         if (!order.getStatus().canConfirm()) {
             throw new InvalidStatusTransitionException("Bestätigen", order.getStatus());
         }
@@ -100,7 +101,7 @@ public class OutboundOrderService {
     /** CONFIRMED -> CANCELLED and stock + for every item, in one transaction (business rule 4). */
     @Transactional
     public OutboundOrderDetailResponse cancel(Long id) {
-        OutboundOrder order = findById(id);
+        OutboundOrder order = findByIdForUpdate(id);
         if (!order.getStatus().canCancel()) {
             throw new InvalidStatusTransitionException("Stornieren", order.getStatus());
         }
@@ -111,7 +112,7 @@ public class OutboundOrderService {
 
     private void applyHeader(OutboundOrder order, OutboundOrderRequest request) {
         order.setCustomer(loadCustomer(request.customerId()));
-        order.setOrderDate(request.orderDate() != null ? request.orderDate() : LocalDate.now());
+        order.setOrderDate(request.orderDate() != null ? request.orderDate() : LocalDate.now(DocumentNumberGenerator.BUSINESS_ZONE));
         order.setNote(request.note());
     }
 
@@ -134,5 +135,15 @@ public class OutboundOrderService {
     private OutboundOrder findById(Long id) {
         return outboundOrderRepository.findWithItemsById(id)
                 .orElseThrow(() -> new NotFoundException("Warenausgang", id));
+    }
+
+    /**
+     * For every write: locks the document row first (SELECT ... FOR UPDATE), so a parallel request on the
+     * same document waits and then sees the new status. Then loads customer, items and products into the locked entity.
+     */
+    private OutboundOrder findByIdForUpdate(Long id) {
+        outboundOrderRepository.findByIdForUpdate(id)
+                .orElseThrow(() -> new NotFoundException("Warenausgang", id));
+        return findById(id);
     }
 }

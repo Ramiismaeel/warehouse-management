@@ -15,7 +15,6 @@ import { DocumentItemsTable } from "@/features/documents/components/DocumentItem
 import { ShortageAlert } from "@/features/documents/components/ShortageAlert"
 import type { DocumentItem } from "@/features/documents/types"
 import {
-  isValidOutboundOrderId,
   useCancelOutboundOrder,
   useConfirmOutboundOrder,
   useDeleteOutboundOrder,
@@ -27,16 +26,17 @@ import type { Product } from "@/features/products/types"
 import { t } from "@/i18n/de"
 import type { ApiError, Shortage } from "@/lib/errors"
 import { formatDate, formatNumber } from "@/lib/format"
+import { isValidId, parseIdParam } from "@/lib/ids"
 
 const text = t.outbound
 const alertText = t.documents.shortageAlert
 
 export function OutboundDetailPage() {
-  const id = Number(useParams().id)
+  const id = parseIdParam(useParams().id)
   const order = useOutboundOrder(id)
 
   let content: ReactNode
-  if (!isValidOutboundOrderId(id) || order.error?.status === 404) {
+  if (!isValidId(id) || order.error?.status === 404) {
     content = (
       <>
         <PageHeader title={text.detail.title} />
@@ -114,7 +114,7 @@ function OutboundOrderView({ order }: { order: OutboundOrderDetail }) {
       <ShortageAlert
         variant="error"
         title={failedConfirm.detail}
-        description={alertText.failedDescription}
+        description={alertText.failedConfirmOutDescription}
         shortages={failedConfirm.shortages}
         onDismiss={() => setFailedConfirm(null)}
       />
@@ -158,7 +158,9 @@ function OutboundOrderView({ order }: { order: OutboundOrderDetail }) {
             onError={(error, action) => {
               if (action === "confirm" && error.shortages.length > 0) {
                 setFailedConfirm(error)
+                return true
               }
+              return false
             }}
           />
         }
@@ -181,7 +183,7 @@ function OutboundOrderView({ order }: { order: OutboundOrderDetail }) {
                   <span className="font-mono text-xs">{number}</span>
                 </HeaderField>
                 <HeaderField label={text.fields.orderDate}>
-                  {order.orderDate ? formatDate(order.orderDate) : "–"}
+                  {order.orderDate ? formatDate(order.orderDate) : t.common.missingValue}
                 </HeaderField>
                 <HeaderField label={text.fields.itemCount}>
                   {formatNumber(order.itemCount)}

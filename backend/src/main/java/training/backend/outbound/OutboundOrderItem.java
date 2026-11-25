@@ -42,7 +42,7 @@ public class OutboundOrderItem {
 
     void increaseQuantity(int amount) {
         requirePositive(amount);
-        this.quantity += amount;
+        this.quantity = Math.addExact(this.quantity, amount); // fails loudly instead of overflowing
     }
 
     private static void requirePositive(int value) {

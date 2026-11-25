@@ -84,6 +84,7 @@ export function InboundListPage() {
         searchColumns={["number", "supplierName"]}
         searchPlaceholder={text.list.search}
         initialSorting={[{ id: "number", desc: true }]}
+        pageResetKey={status}
         emptyState={emptyState}
       />
     </>

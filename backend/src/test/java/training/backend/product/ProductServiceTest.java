@@ -6,6 +6,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.util.ReflectionTestUtils;
 import training.backend.exceptions.DuplicateValueException;
 import training.backend.exceptions.EntityInUseException;
@@ -19,6 +20,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -40,21 +42,48 @@ class ProductServiceTest {
     // ---------- getAll ----------
 
     @Test
-    void getAll_returnsAllProductsMapped() {
-        when(productRepository.findAll()).thenReturn(List.of(
+    void getAll_withoutSearchTerm_returnsAllProductsSortedBySku() {
+        when(productRepository.findAllByOrderBySkuAsc()).thenReturn(List.of(
                 product(1L, "A-1001", "Schraube M4", 10, 5),
                 product(2L, "A-1002", "Mutter M4", 0, 5)));
 
-        List<ProductResponse> result = productService.getAll();
+        List<ProductResponse> result = productService.getAll(null);
 
         assertThat(result).extracting(ProductResponse::sku).containsExactly("A-1001", "A-1002");
+        verify(productRepository, never()).search(anyString());
+    }
+
+    @Test
+    void getAll_withBlankSearchTerm_returnsAll() {
+        when(productRepository.findAllByOrderBySkuAsc()).thenReturn(List.of(product(1L, "A-1001", "Schraube M4", 10, 5)));
+
+        assertThat(productService.getAll("   ")).hasSize(1);
+        verify(productRepository, never()).search(anyString());
     }
 
     @Test
     void getAll_whenNoProducts_returnsEmptyList() {
-        when(productRepository.findAll()).thenReturn(List.of());
+        when(productRepository.findAllByOrderBySkuAsc()).thenReturn(List.of());
 
-        assertThat(productService.getAll()).isEmpty();
+        assertThat(productService.getAll(null)).isEmpty();
+    }
+
+    @Test
+    void getAll_withSearchTerm_searchesWithTrimmedTerm() {
+        when(productRepository.search("schraube")).thenReturn(List.of(product(1L, "A-1001", "Schraube M4", 10, 5)));
+
+        List<ProductResponse> result = productService.getAll("  schraube  ");
+
+        assertThat(result).extracting(ProductResponse::sku).containsExactly("A-1001");
+        verify(productRepository, never()).findAllByOrderBySkuAsc();
+    }
+
+    @Test
+    void getAll_withLikeWildcardsInSearchTerm_escapesThem() {
+        // Input: 50% m_4 a\b  ->  escaped: 50\% m\_4 a\\b
+        when(productRepository.search("50\\% m\\_4 a\\\\b")).thenReturn(List.of(product(1L, "A-1001", "50% m_4 a\\b", 10, 5)));
+
+        assertThat(productService.getAll("50% m_4 a\\b")).hasSize(1);
     }
 
     // ---------- getById ----------
@@ -116,12 +145,12 @@ class ProductServiceTest {
     @Test
     void createProduct_normalizesSkuAndStartsWithQuantityZero() {
         when(productRepository.existsBySku("A-1001")).thenReturn(false);
-        when(productRepository.save(any(Product.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(productRepository.saveAndFlush(any(Product.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         ProductResponse result = productService.createProduct(request("  a-1001 ", "Schraube M4", 5));
 
         ArgumentCaptor<Product> saved = ArgumentCaptor.forClass(Product.class);
-        verify(productRepository).save(saved.capture());
+        verify(productRepository).saveAndFlush(saved.capture());
         assertThat(saved.getValue().getSku()).isEqualTo("A-1001");
         assertThat(saved.getValue().getName()).isEqualTo("Schraube M4");
         assertThat(saved.getValue().getUnit()).isEqualTo(ProductUnit.PIECE);
@@ -140,7 +169,20 @@ class ProductServiceTest {
                 .hasMessage("Die SKU „A-1001“ ist bereits vergeben.")
                 .extracting("field").isEqualTo("sku");
 
-        verify(productRepository, never()).save(any());
+        verify(productRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void createProduct_whenParallelInsertTakesSku_throwsDuplicate() {
+        // Both requests passed existsBySku; the unique constraint rejects the second insert.
+        when(productRepository.existsBySku("A-1001")).thenReturn(false);
+        when(productRepository.saveAndFlush(any(Product.class)))
+                .thenThrow(new DataIntegrityViolationException("unique constraint on sku"));
+
+        assertThatThrownBy(() -> productService.createProduct(request("a-1001", "Schraube M4", 5)))
+                .isInstanceOf(DuplicateValueException.class)
+                .hasMessage("Die SKU „A-1001“ ist bereits vergeben.")
+                .extracting("field").isEqualTo("sku");
     }
 
     // ---------- updateProduct ----------
@@ -188,6 +230,20 @@ class ProductServiceTest {
         assertThat(existing.getSku()).isEqualTo("A-1001");
         assertThat(existing.getName()).isEqualTo("Schraube M4");
         verify(productRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void updateProduct_whenParallelUpdateTakesSku_throwsDuplicate() {
+        Product existing = product(1L, "A-1001", "Schraube M4", 10, 5);
+        when(productRepository.findById(1L)).thenReturn(Optional.of(existing));
+        when(productRepository.existsBySkuAndIdNot("A-2002", 1L)).thenReturn(false);
+        when(productRepository.saveAndFlush(existing))
+                .thenThrow(new DataIntegrityViolationException("unique constraint on sku"));
+
+        assertThatThrownBy(() -> productService.updateProduct(request("a-2002", "Schraube M5", 8), 1L))
+                .isInstanceOf(DuplicateValueException.class)
+                .hasMessage("Die SKU „A-2002“ ist bereits vergeben.")
+                .extracting("field").isEqualTo("sku");
     }
 
     // ---------- deleteProduct ----------
