@@ -2,6 +2,11 @@
 export const common = {
   appName: "Lagerverwaltung",
   appSubtitle: "Gruppe 3",
+  /** Browser tab title of a page, e.g. "Artikel · Lagerverwaltung". */
+  documentTitle: (page: string) => `${page} · Lagerverwaltung`,
+  /** Shown instead of a missing optional value, e.g. a Beleg without date or a Kunde without phone. */
+  missingValue: "–",
+  loading: "Wird geladen …",
   nav: {
     label: "Navigation",
     dashboard: "Dashboard",
@@ -43,13 +48,21 @@ export const common = {
     LOW: "Niedrig",
     OK: "OK",
   },
-  placeholder: {
-    text: "Diese Seite wird noch umgesetzt.",
-    id: "ID",
-  },
   notFound: {
     title: "Seite nicht gefunden",
     description: "Die aufgerufene Adresse existiert nicht.",
+  },
+  routeError: {
+    title: "Etwas ist schiefgelaufen",
+    description:
+      "Diese Seite konnte nicht angezeigt werden. Bitte die Seite neu laden oder zum Dashboard wechseln.",
+  },
+  unsavedChanges: {
+    title: "Änderungen verwerfen?",
+    description:
+      "Du hast ungespeicherte Änderungen. Wenn du die Seite verlässt, gehen sie verloren.",
+    discard: "Verwerfen",
+    stay: "Weiter bearbeiten",
   },
   errors: {
     title: "Fehler",

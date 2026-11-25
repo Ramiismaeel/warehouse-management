@@ -12,6 +12,8 @@ export const documents = {
   items: {
     product: "Artikel",
     quantity: "Menge",
+    productNamed: (position: number) => `Artikel (Zeile ${position})`,
+    quantityNamed: (position: number) => `Menge (Zeile ${position})`,
     remove: "Artikelzeile entfernen",
     removeNamed: (position: number) => `Artikelzeile ${position} entfernen`,
     add: "Artikelzeile hinzufügen",
@@ -59,7 +61,10 @@ export const documents = {
         : `Für ${count} Artikel reicht der Bestand nicht`,
     precheckDescription:
       "Bestätigen ist erst möglich, wenn genug Bestand da ist, z. B. nach einem Wareneingang. Stand: aktueller Bestand.",
-    failedDescription: "Der Warenausgang wurde nicht bestätigt. Der Bestand ist unverändert.",
+    failedConfirmOutDescription:
+      "Der Warenausgang wurde nicht bestätigt. Der Bestand ist unverändert.",
+    failedCancelInDescription:
+      "Der Wareneingang wurde nicht storniert. Ein Teil der gelieferten Ware ist nicht mehr im Lager. Der Bestand ist unverändert.",
     dismiss: "Ausblenden",
   },
   validation: {
@@ -67,6 +72,7 @@ export const documents = {
     quantityRequired: "Bitte eine Menge angeben.",
     quantityInteger: "Die Menge muss eine ganze Zahl sein.",
     quantityMin: "Die Menge muss mindestens 1 sein.",
+    quantityMax: "Die Menge darf höchstens 1.000.000 sein.",
     itemsMin: "Der Beleg braucht mindestens eine Artikelzeile.",
     duplicateProduct: "Dieser Artikel ist bereits im Beleg.",
   },

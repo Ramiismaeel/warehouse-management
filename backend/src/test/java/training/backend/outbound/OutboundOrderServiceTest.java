@@ -158,6 +158,30 @@ class OutboundOrderServiceTest {
         assertEquals("TEST-0001", reloaded.items().getFirst().sku());
     }
 
+    @Test
+    void update_whenCancelled_rejectsAndChangesNothing() {
+        OutboundOrderDetailResponse created = service.create(request(mueller, new OutboundOrderItemRequest(schraube, 5)));
+        confirm(created.id());
+        service.cancel(created.id());
+        repository.flush();
+
+        InvalidStatusTransitionException ex = assertThrows(InvalidStatusTransitionException.class, () ->
+                service.update(created.id(), request(schmidt, new OutboundOrderItemRequest(mutter, 1))));
+
+        assertEquals("„Bearbeiten“ ist im Status „Storniert“ nicht möglich.", ex.getMessage());
+        entityManager.clear();
+        OutboundOrderDetailResponse reloaded = service.getById(created.id());
+        assertEquals("Test Müller Bau GmbH", reloaded.customerName());
+        assertEquals("TEST-0001", reloaded.items().getFirst().sku());
+        assertEquals(DocumentStatus.CANCELLED, reloaded.status());
+    }
+
+    @Test
+    void update_whenUnknownId_throwsNotFound() {
+        assertThrows(NotFoundException.class, () ->
+                service.update(999_999L, request(mueller, new OutboundOrderItemRequest(schraube, 1))));
+    }
+
     // ---------- delete ----------
 
     @Test

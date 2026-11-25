@@ -19,6 +19,6 @@ public record OutboundOrderRequest(
         String note,
 
         @NotEmpty(message = "Mindestens eine Position ist erforderlich")
-        List<@Valid OutboundOrderItemRequest> items
+        List<@NotNull(message = "Position darf nicht leer sein") @Valid OutboundOrderItemRequest> items
 ) {
 }

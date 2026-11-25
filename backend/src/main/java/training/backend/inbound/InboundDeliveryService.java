@@ -52,12 +52,12 @@ public class InboundDeliveryService {
 
         InboundDelivery delivery = new InboundDelivery();
         delivery.setSupplierName(request.supplierName());
-        delivery.setDeliveryDate(request.deliveryDate() != null ? request.deliveryDate() : LocalDate.now());
+        delivery.setDeliveryDate(request.deliveryDate() != null ? request.deliveryDate() : LocalDate.now(DocumentNumberGenerator.BUSINESS_ZONE));
         delivery.setNote(request.note());
         request.items().forEach(item -> delivery.addItem(loadProduct(item.productId()), item.quantity()));
         InboundDelivery saved = inboundDeliveryRepository.save(delivery);
         saved.setDeliveryNumber(DocumentNumberGenerator.format(
-                "WE", Year.now().getValue(), saved.getId()));
+                "WE", Year.now(DocumentNumberGenerator.BUSINESS_ZONE).getValue(), saved.getId()));
 
         return inboundDeliveryMapper.toDetailResponse(saved);
 
@@ -66,13 +66,13 @@ public class InboundDeliveryService {
 
     @Transactional
     public InboundDeliveryDetailResponse update(Long id, InboundDeliveryRequest request) {
-        InboundDelivery delivery = findById(id);
+        InboundDelivery delivery = findByIdForUpdate(id);
 
         if(!delivery.getStatus().canEdit()) {
             throw new InvalidStatusTransitionException("Bearbeiten", delivery.getStatus());
         }
         delivery.setSupplierName(request.supplierName());
-        delivery.setDeliveryDate(request.deliveryDate() != null ? request.deliveryDate() : LocalDate.now());
+        delivery.setDeliveryDate(request.deliveryDate() != null ? request.deliveryDate() : LocalDate.now(DocumentNumberGenerator.BUSINESS_ZONE));
         delivery.setNote(request.note());
         delivery.clearItems();
         inboundDeliveryRepository.flush();
@@ -83,7 +83,7 @@ public class InboundDeliveryService {
 
     @Transactional
     public void delete(Long id) {
-        InboundDelivery delivery = findById(id);
+        InboundDelivery delivery = findByIdForUpdate(id);
         if(!delivery.getStatus().canEdit()) {
             throw new InvalidStatusTransitionException("Löschen", delivery.getStatus());
         }
@@ -94,7 +94,7 @@ public class InboundDeliveryService {
     /** DRAFT -> CONFIRMED and stock + for every item, in one transaction (business rule 4). */
     @Transactional
     public InboundDeliveryDetailResponse confirm(Long id) {
-        InboundDelivery delivery = findById(id);
+        InboundDelivery delivery = findByIdForUpdate(id);
         if (!delivery.getStatus().canConfirm()) {
             throw new InvalidStatusTransitionException("Bestätigen", delivery.getStatus());
         }
@@ -109,7 +109,7 @@ public class InboundDeliveryService {
      */
     @Transactional
     public InboundDeliveryDetailResponse cancel(Long id) {
-        InboundDelivery delivery = findById(id);
+        InboundDelivery delivery = findByIdForUpdate(id);
         if (!delivery.getStatus().canCancel()) {
             throw new InvalidStatusTransitionException("Stornieren", delivery.getStatus());
         }
@@ -132,5 +132,15 @@ public class InboundDeliveryService {
     private InboundDelivery findById(Long id) {
         return inboundDeliveryRepository.findWithItemsById(id)
                 .orElseThrow(() -> new NotFoundException("Wareneingang", id));
+    }
+
+    /**
+     * For every write: locks the document row first (SELECT ... FOR UPDATE), so a parallel request on the
+     * same document waits and then sees the new status. Then loads items and products into the locked entity.
+     */
+    private InboundDelivery findByIdForUpdate(Long id) {
+        inboundDeliveryRepository.findByIdForUpdate(id)
+                .orElseThrow(() -> new NotFoundException("Wareneingang", id));
+        return findById(id);
     }
 }

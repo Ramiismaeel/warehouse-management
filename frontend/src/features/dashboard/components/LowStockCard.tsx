@@ -82,7 +82,7 @@ export function LowStockCard({ products, total }: LowStockCardProps) {
                       <ProductImage
                         sku={product.sku}
                         imageUrl={product.imageUrl}
-                        alt={product.name}
+                        alt=""
                         className="size-8"
                       />
                       <span className="min-w-0">

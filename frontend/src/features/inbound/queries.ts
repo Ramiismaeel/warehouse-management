@@ -12,6 +12,7 @@ import {
 } from "@/features/inbound/api"
 import type { InboundDeliveryDetail, InboundDeliveryRequest } from "@/features/inbound/types"
 import { productKeys } from "@/features/products/queries"
+import { isValidId } from "@/lib/ids"
 
 export const inboundKeys = {
   all: ["inbound-deliveries"] as const,
@@ -33,7 +34,7 @@ export function useInboundDelivery(id: number) {
   return useQuery({
     queryKey: inboundKeys.detail(id),
     queryFn: () => fetchInboundDelivery(id),
-    enabled: isValidInboundDeliveryId(id),
+    enabled: isValidId(id),
   })
 }
 
@@ -53,6 +54,7 @@ export function useUpdateInboundDelivery() {
     mutationFn: ({ id, request }: { id: number; request: InboundDeliveryRequest }) =>
       updateInboundDelivery(id, request),
     onSuccess: (delivery) => storeSavedDraft(queryClient, delivery),
+    onError: (_error, { id }) => refreshAfterFailure(queryClient, id),
   })
 }
 
@@ -62,6 +64,7 @@ export function useConfirmInboundDelivery() {
   return useMutation({
     mutationFn: confirmInboundDelivery,
     onSuccess: (delivery) => storeStockChange(queryClient, delivery),
+    onError: (_error, id) => refreshAfterFailure(queryClient, id),
   })
 }
 
@@ -71,6 +74,14 @@ export function useCancelInboundDelivery() {
   return useMutation({
     mutationFn: cancelInboundDelivery,
     onSuccess: (delivery) => storeStockChange(queryClient, delivery),
+    // A 409 with shortages means our Bestand numbers are outdated too: reload them as well.
+    onError: (error, id) =>
+      Promise.all([
+        refreshAfterFailure(queryClient, id),
+        error.shortages.length > 0
+          ? queryClient.invalidateQueries({ queryKey: productKeys.all })
+          : undefined,
+      ]),
   })
 }
 
@@ -79,14 +90,16 @@ export function useDeleteInboundDelivery() {
 
   return useMutation({
     mutationFn: deleteInboundDelivery,
-    // Only the list: the detail page of the deleted draft is still open until it navigates away,
-    // and removing its query would refetch it and flash a 404. A draft has no stock effect.
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: inboundKeys.lists() }),
+    // Not the detail: the detail page of the deleted draft is still open until it navigates away,
+    // and removing its query would refetch it and flash a 404. A draft has no stock effect,
+    // but the dashboard counts open drafts.
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: inboundKeys.lists() }),
+        queryClient.invalidateQueries({ queryKey: dashboardKeys.all }),
+      ]),
+    onError: (_error, id) => refreshAfterFailure(queryClient, id),
   })
-}
-
-export function isValidInboundDeliveryId(id: number): boolean {
-  return Number.isInteger(id) && id > 0
 }
 
 /**
@@ -111,5 +124,16 @@ function storeStockChange(queryClient: QueryClient, delivery: InboundDeliveryDet
     queryClient.invalidateQueries({ queryKey: inboundKeys.lists() }),
     queryClient.invalidateQueries({ queryKey: productKeys.all }),
     queryClient.invalidateQueries({ queryKey: dashboardKeys.all }),
+  ])
+}
+
+/**
+ * A failed action often means our copy is outdated, e.g. a 409 because the Wareneingang was
+ * confirmed or deleted in another tab. Reload it, so the page shows its real status and buttons.
+ */
+function refreshAfterFailure(queryClient: QueryClient, id: number) {
+  return Promise.all([
+    queryClient.invalidateQueries({ queryKey: inboundKeys.detail(id) }),
+    queryClient.invalidateQueries({ queryKey: inboundKeys.lists() }),
   ])
 }

@@ -78,8 +78,8 @@ export function toApiError(error: unknown): ApiError {
 
 /**
  * Puts the backend's field errors (400 validation, 409 duplicate value) on the matching form fields
- * and focuses the first one. Returns false when none of them belongs to the form, so the caller can
- * show a toast instead.
+ * and focuses the first one. Nested keys reach their row, e.g. "items[0].quantity" → items.0.quantity.
+ * Returns false when none of them belongs to the form, so the caller can show a toast instead.
  *
  * @example
  * if (!applyFieldErrors(toApiError(error), form.setError, PRODUCT_FORM_FIELDS)) showApiError(error)
@@ -89,11 +89,26 @@ export function applyFieldErrors<T extends FieldValues>(
   setError: UseFormSetError<T>,
   fields: readonly Path<T>[],
 ): boolean {
-  const invalidFields = fields.filter((field) => field in error.errors)
-  invalidFields.forEach((field, index) =>
-    setError(field, { type: "server", message: error.errors[field] }, { shouldFocus: index === 0 }),
+  const topLevelFields: readonly string[] = fields
+  const invalidFields = Object.entries(error.errors)
+    .map(([field, message]) => {
+      const path = toFormPath(field)
+      return { path, message, order: topLevelFields.indexOf(path.split(".")[0]) }
+    })
+    .filter(({ order }) => order >= 0)
+    // Focus follows the form's field order, not the order the backend reported the errors in.
+    .sort((a, b) => a.order - b.order)
+
+  invalidFields.forEach(({ path, message }, index) =>
+    // Safe: the path starts with one of the form's own fields.
+    setError(path as Path<T>, { type: "server", message }, { shouldFocus: index === 0 }),
   )
   return invalidFields.length > 0
+}
+
+/** Spring names list elements with brackets, react-hook-form with dots: "items[0].quantity" → "items.0.quantity". */
+function toFormPath(field: string): string {
+  return field.replace(/\[(\d+)\]/g, ".$1")
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

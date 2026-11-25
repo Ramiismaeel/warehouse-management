@@ -4,12 +4,14 @@ import { Controller, FormProvider, useForm } from "react-hook-form"
 import { Link } from "react-router"
 
 import { DatePicker } from "@/components/shared/DatePicker"
+import { UnsavedChangesGuard } from "@/components/shared/UnsavedChangesGuard"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Textarea } from "@/components/ui/textarea"
 import { CustomerPicker } from "@/features/customers/components/CustomerPicker"
 import { DocumentItemsEditor } from "@/features/documents/components/DocumentItemsEditor"
+import type { DocumentItem } from "@/features/documents/types"
 import {
   OUTBOUND_FORM_FIELDS,
   outboundFormSchema,
@@ -28,10 +30,19 @@ interface OutboundFormProps {
   cancelTo: string
   /** Saves the draft. A rejected promise puts field errors on the fields, other errors in a toast. */
   onSubmit: (request: OutboundOrderRequest) => Promise<void>
+  /** Edit page: the saved Kunde and positions, so the pickers show them before their lists have loaded. */
+  savedCustomer?: { id: number; name: string }
+  savedItems?: readonly DocumentItem[]
 }
 
 /** Warenausgang draft form for the create and edit pages: Kopfdaten + Artikelzeilen with available stock. */
-export function OutboundForm({ defaultValues, cancelTo, onSubmit }: OutboundFormProps) {
+export function OutboundForm({
+  defaultValues,
+  cancelTo,
+  onSubmit,
+  savedCustomer,
+  savedItems,
+}: OutboundFormProps) {
   const showApiError = useApiErrorToast()
   const form = useForm<OutboundFormValues, unknown, OutboundOrderRequest>({
     resolver: zodResolver(outboundFormSchema),
@@ -42,7 +53,7 @@ export function OutboundForm({ defaultValues, cancelTo, onSubmit }: OutboundForm
     control,
     register,
     setError,
-    formState: { errors, isSubmitting },
+    formState: { errors, isDirty, isSubmitting },
   } = form
 
   const submit = form.handleSubmit(async (request) => {
@@ -59,6 +70,7 @@ export function OutboundForm({ defaultValues, cancelTo, onSubmit }: OutboundForm
   return (
     <FormProvider {...form}>
       <form onSubmit={submit} noValidate className="flex max-w-4xl flex-col gap-6">
+        <UnsavedChangesGuard when={isDirty && !isSubmitting} />
         <Card>
           <CardHeader>
             <CardTitle>{text.header}</CardTitle>
@@ -78,6 +90,9 @@ export function OutboundForm({ defaultValues, cancelTo, onSubmit }: OutboundForm
                         onChange={field.onChange}
                         onBlur={field.onBlur}
                         invalid={fieldState.invalid}
+                        fallbackLabel={
+                          savedCustomer?.id === field.value ? savedCustomer.name : undefined
+                        }
                       />
                       <FieldError errors={[fieldState.error]} />
                     </Field>
@@ -125,7 +140,7 @@ export function OutboundForm({ defaultValues, cancelTo, onSubmit }: OutboundForm
           </CardHeader>
           <CardContent>
             {/* Shows "Verfügbar: …" per line and an amber hint when a quantity is higher (T22). */}
-            <DocumentItemsEditor showAvailableStock />
+            <DocumentItemsEditor showAvailableStock fallbackProducts={savedItems} />
           </CardContent>
         </Card>
 

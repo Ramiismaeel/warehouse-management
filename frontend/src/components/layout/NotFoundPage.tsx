@@ -1,6 +1,7 @@
 import { FileQuestion } from "lucide-react"
 import { Link } from "react-router"
 
+import { DocumentTitle } from "@/components/layout/DocumentTitle"
 import { Button } from "@/components/ui/button"
 import { t } from "@/i18n/de"
 
@@ -8,6 +9,7 @@ import { t } from "@/i18n/de"
 export function NotFoundPage() {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-4 py-16 text-center">
+      <DocumentTitle title={t.common.notFound.title} />
       <FileQuestion className="size-12 text-muted-foreground" />
       <div className="space-y-1">
         <p className="text-sm font-medium text-muted-foreground">404</p>

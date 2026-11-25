@@ -11,6 +11,20 @@ import java.util.List;
 @Repository
 public interface ProductRepository extends JpaRepository<Product, Long> {
 
+    List<Product> findAllByOrderBySkuAsc();
+
+    /**
+     * Case-insensitive search in SKU and name, sorted by SKU.
+     * {@code q} must already be LIKE-escaped with {@code \} (ProductService does that), so % and _ match literally.
+     */
+    @Query("""
+            select p from Product p
+            where lower(p.sku)  like lower(concat('%', :q, '%')) escape '\\'
+               or lower(p.name) like lower(concat('%', :q, '%')) escape '\\'
+            order by p.sku
+            """)
+    List<Product> search(@Param("q") String q);
+
     boolean existsBySku(String sku);
 
     boolean existsBySkuAndIdNot(String sku, Long id);

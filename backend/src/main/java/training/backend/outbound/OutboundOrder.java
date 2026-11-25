@@ -5,7 +5,9 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.BatchSize;
 import training.backend.customer.Customer;
+import training.backend.document.DocumentNumberGenerator;
 import training.backend.document.DocumentStatus;
 import training.backend.entities.BaseEntity;
 import training.backend.product.Product;
@@ -29,7 +31,7 @@ public class OutboundOrder extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Setter(AccessLevel.NONE)
     private DocumentStatus status = DocumentStatus.DRAFT;
-    private LocalDate orderDate = LocalDate.now();
+    private LocalDate orderDate = LocalDate.now(DocumentNumberGenerator.BUSINESS_ZONE);
 
     private String note;
 
@@ -39,6 +41,7 @@ public class OutboundOrder extends BaseEntity {
 
 
     @Setter(AccessLevel.NONE)
+    @BatchSize(size = 50) // lists without a fetch join (dashboard) load items for many documents at once
     @OneToMany(mappedBy = "outboundOrder", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OutboundOrderItem> items = new ArrayList<>();
 

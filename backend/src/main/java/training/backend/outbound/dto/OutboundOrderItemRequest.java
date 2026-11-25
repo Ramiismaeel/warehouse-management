@@ -1,5 +1,6 @@
 package training.backend.outbound.dto;
 
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 
@@ -9,6 +10,7 @@ public record OutboundOrderItemRequest(
 
         @NotNull(message = "Menge ist erforderlich")
         @Positive(message = "Menge muss mindestens 1 sein")
+        @Max(value = 1_000_000, message = "Menge darf höchstens 1.000.000 sein")
         Integer quantity
 ) {
 }

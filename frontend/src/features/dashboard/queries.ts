@@ -3,8 +3,8 @@ import { useQuery } from "@tanstack/react-query"
 import { fetchDashboard } from "@/features/dashboard/api"
 
 /**
- * Query keys of the dashboard. Confirming or cancelling a Beleg (inbound/outbound queries)
- * and saving a draft invalidate `all`, so the dashboard is fresh after those actions.
+ * Query keys of the dashboard. Confirming or cancelling a Beleg, saving or deleting a draft and
+ * saving or deleting an Artikel or Kunde invalidate `all`, so the dashboard is fresh after those actions.
  */
 export const dashboardKeys = {
   all: ["dashboard"] as const,

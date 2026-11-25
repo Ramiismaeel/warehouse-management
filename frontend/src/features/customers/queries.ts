@@ -8,6 +8,8 @@ import {
   updateCustomer,
 } from "@/features/customers/api"
 import type { Customer, CustomerRequest } from "@/features/customers/types"
+import { dashboardKeys } from "@/features/dashboard/queries"
+import { isValidId } from "@/lib/ids"
 
 export const customerKeys = {
   all: ["customers"] as const,
@@ -29,7 +31,7 @@ export function useCustomer(id: number) {
   return useQuery({
     queryKey: customerKeys.detail(id),
     queryFn: () => fetchCustomer(id),
-    enabled: isValidCustomerId(id),
+    enabled: isValidId(id),
   })
 }
 
@@ -61,17 +63,19 @@ export function useDeleteCustomer() {
     // so the deleted row is gone when the dialog closes.
     onSuccess: (_data, id) => {
       queryClient.removeQueries({ queryKey: customerKeys.detail(id) })
-      return queryClient.invalidateQueries({ queryKey: customerKeys.lists() })
+      return Promise.all([
+        queryClient.invalidateQueries({ queryKey: customerKeys.lists() }),
+        queryClient.invalidateQueries({ queryKey: dashboardKeys.all }),
+      ])
     },
   })
 }
 
-export function isValidCustomerId(id: number): boolean {
-  return Number.isInteger(id) && id > 0
-}
-
-/** Caches the saved customer for its edit page and marks the list as outdated. */
+/** Caches the saved customer for its edit page and marks the list and the dashboard (counts) as outdated. */
 function storeSavedCustomer(queryClient: QueryClient, customer: Customer) {
   queryClient.setQueryData(customerKeys.detail(customer.id), customer)
-  return queryClient.invalidateQueries({ queryKey: customerKeys.lists() })
+  return Promise.all([
+    queryClient.invalidateQueries({ queryKey: customerKeys.lists() }),
+    queryClient.invalidateQueries({ queryKey: dashboardKeys.all }),
+  ])
 }

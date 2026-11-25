@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query"
 
+import { dashboardKeys } from "@/features/dashboard/queries"
 import {
   createProduct,
   deleteProduct,
@@ -8,6 +9,7 @@ import {
   updateProduct,
 } from "@/features/products/api"
 import type { Product, ProductRequest } from "@/features/products/types"
+import { isValidId } from "@/lib/ids"
 
 export const productKeys = {
   all: ["products"] as const,
@@ -29,7 +31,7 @@ export function useProduct(id: number) {
   return useQuery({
     queryKey: productKeys.detail(id),
     queryFn: () => fetchProduct(id),
-    enabled: isValidProductId(id),
+    enabled: isValidId(id),
   })
 }
 
@@ -61,17 +63,19 @@ export function useDeleteProduct() {
     // so the deleted row is gone when the dialog closes.
     onSuccess: (_data, id) => {
       queryClient.removeQueries({ queryKey: productKeys.detail(id) })
-      return queryClient.invalidateQueries({ queryKey: productKeys.lists() })
+      return Promise.all([
+        queryClient.invalidateQueries({ queryKey: productKeys.lists() }),
+        queryClient.invalidateQueries({ queryKey: dashboardKeys.all }),
+      ])
     },
   })
 }
 
-export function isValidProductId(id: number): boolean {
-  return Number.isInteger(id) && id > 0
-}
-
-/** Caches the saved product for its edit page and marks the list as outdated. */
+/** Caches the saved product for its edit page and marks the list and the dashboard (counts) as outdated. */
 function storeSavedProduct(queryClient: QueryClient, product: Product) {
   queryClient.setQueryData(productKeys.detail(product.id), product)
-  return queryClient.invalidateQueries({ queryKey: productKeys.lists() })
+  return Promise.all([
+    queryClient.invalidateQueries({ queryKey: productKeys.lists() }),
+    queryClient.invalidateQueries({ queryKey: dashboardKeys.all }),
+  ])
 }

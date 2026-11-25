@@ -6,7 +6,10 @@ import { cn } from "@/lib/utils"
 interface ProductImageProps {
   sku: string
   imageUrl?: string | null
-  /** Usually the product name. */
+  /**
+   * The product name when the image stands alone (e.g. a preview). "" when the name is shown right
+   * next to it (table rows): screen readers then skip the image instead of reading the name twice.
+   */
   alt: string
   /** Size and shape, e.g. "size-10" (default) or "size-40 rounded-xl". */
   className?: string
@@ -31,8 +34,7 @@ export function ProductImage({ sku, imageUrl, alt, className }: ProductImageProp
   if (!src) {
     return (
       <div
-        role="img"
-        aria-label={alt}
+        {...(alt === "" ? { "aria-hidden": true } : { role: "img", "aria-label": alt })}
         className={cn("flex items-center justify-center text-muted-foreground", boxClasses)}
       >
         <Package className="size-1/2" />

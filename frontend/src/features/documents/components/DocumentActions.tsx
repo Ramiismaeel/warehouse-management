@@ -24,13 +24,17 @@ interface DocumentActionsProps {
   editTo: string
   /**
    * Called after the user confirms the dialog. Resolve when done (show the success toast / navigate there);
-   * reject with the API error and DocumentActions shows it as a toast (incl. the shortages of a 409).
+   * reject with the API error and DocumentActions shows it as a toast (incl. the shortages of a 409,
+   * unless onError shows them on the page).
    */
   onConfirm: () => Promise<unknown>
   onCancel: () => Promise<unknown>
   onDelete: () => Promise<unknown>
-  /** Called after the error toast, e.g. to keep a 409's shortages on the page (Warenausgang). */
-  onError?: (error: ApiError, action: DocumentAction) => void
+  /**
+   * Called when an action failed, e.g. to keep a 409's shortages on the page in a ShortageAlert.
+   * Return true when the page shows the shortages: the toast then only has the message, not the list again.
+   */
+  onError?: (error: ApiError, action: DocumentAction) => boolean
 }
 
 /**
@@ -72,8 +76,8 @@ export function DocumentActions({
       await handlers[action]()
     } catch (error) {
       const apiError = toApiError(error)
-      showActionError(apiError)
-      onError?.(apiError, action)
+      const shortagesShownOnPage = onError?.(apiError, action) ?? false
+      showActionError(apiError, !shortagesShownOnPage)
     } finally {
       setIsRunning(false)
       setIsDialogOpen(false)
@@ -145,12 +149,12 @@ export function DocumentActions({
   )
 }
 
-/** Like useApiErrorToast, but a 409 stock conflict also lists every short product. */
-function showActionError({ detail, shortages }: ApiError) {
+/** Like useApiErrorToast, but a 409 stock conflict can also list every short product. */
+function showActionError({ detail, shortages }: ApiError, withShortages: boolean) {
   toast.error(detail, {
     id: detail,
     description:
-      shortages.length > 0 ? (
+      withShortages && shortages.length > 0 ? (
         <ul className="list-disc pl-4">
           {shortages.map((shortage) => (
             <li key={shortage.productId}>

@@ -2,6 +2,7 @@ import { z } from "zod"
 
 import { PRODUCT_UNITS, type Product } from "@/features/products/types"
 import { t } from "@/i18n/de"
+import { MAX_QUANTITY } from "@/lib/stock"
 
 const messages = t.products.validation
 
@@ -25,7 +26,8 @@ export const productFormSchema = z.object({
   minQuantity: z
     .number({ error: messages.minQuantityRequired })
     .int(messages.minQuantityInteger)
-    .min(0, messages.minQuantityMin),
+    .min(0, messages.minQuantityMin)
+    .max(MAX_QUANTITY, messages.minQuantityMax),
   imageUrl: z
     .string()
     .trim()

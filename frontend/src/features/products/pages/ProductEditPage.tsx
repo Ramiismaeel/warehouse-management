@@ -7,15 +7,16 @@ import { EmptyState } from "@/components/shared/EmptyState"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ProductForm } from "@/features/products/components/ProductForm"
-import { isValidProductId, useProduct, useUpdateProduct } from "@/features/products/queries"
+import { useProduct, useUpdateProduct } from "@/features/products/queries"
 import { toProductFormValues } from "@/features/products/schema"
 import type { ProductRequest } from "@/features/products/types"
 import { t } from "@/i18n/de"
+import { isValidId, parseIdParam } from "@/lib/ids"
 
 const text = t.products
 
 export function ProductEditPage() {
-  const id = Number(useParams().id)
+  const id = parseIdParam(useParams().id)
   const product = useProduct(id)
   const updateProduct = useUpdateProduct()
   const navigate = useNavigate()
@@ -33,7 +34,7 @@ export function ProductEditPage() {
   )
 
   let content
-  if (!isValidProductId(id) || product.error?.status === 404) {
+  if (!isValidId(id) || product.error?.status === 404) {
     content = (
       <EmptyState
         icon={FileQuestion}

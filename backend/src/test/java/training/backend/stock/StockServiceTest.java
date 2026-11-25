@@ -107,6 +107,26 @@ class StockServiceTest {
     }
 
     @Test
+    void duplicateLinesSummingBeyondIntRangeAreRejected() {
+        assertThrows(ArithmeticException.class, () ->
+                stockService.apply(List.of(
+                                new StockChange(1L, Integer.MAX_VALUE),
+                                new StockChange(1L, 1)),
+                        StockDirection.IN));
+    }
+
+    @Test
+    void inBeyondIntRangeIsRejectedAndChangesNothing() {
+        Product schraube = product(1L, "Schraube", Integer.MAX_VALUE);
+        when(productRepository.findAllById(any())).thenReturn(List.of(schraube));
+
+        assertThrows(ArithmeticException.class, () ->
+                stockService.apply(List.of(new StockChange(1L, 1)), StockDirection.IN));
+
+        assertEquals(Integer.MAX_VALUE, schraube.getQuantity());
+    }
+
+    @Test
     void zeroOrNegativeQuantityIsRejected() {
         assertThrows(IllegalArgumentException.class, () -> new StockChange(1L, 0));
         assertThrows(IllegalArgumentException.class, () -> new StockChange(1L, -5));

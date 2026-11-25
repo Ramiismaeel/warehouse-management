@@ -1,6 +1,7 @@
 package training.backend.product;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.stereotype.Service;
 import training.backend.exceptions.DuplicateValueException;
@@ -23,9 +24,14 @@ public class ProductService {
     private final ProductRepository productRepository;
     private final ProductMapper productMapper;
 
+    /** All products sorted by SKU; with a search term only those whose SKU or name contains it (case-insensitive). */
     @Transactional(readOnly = true)
-    public List<ProductResponse> getAll() {
-        return productRepository.findAll().stream().map(productMapper::toResponse).toList();
+    public List<ProductResponse> getAll(String q) {
+        List<Product> products = (q == null || q.isBlank())
+                ? productRepository.findAllByOrderBySkuAsc()
+                : productRepository.search(escapeLike(q.trim()));
+
+        return products.stream().map(productMapper::toResponse).toList();
     }
 
     @Transactional(readOnly = true)
@@ -40,7 +46,7 @@ public class ProductService {
         }
         Product product = productMapper.toEntity(request);
         product.setSku(sku);
-        return productMapper.toResponse(productRepository.save(product));
+        return productMapper.toResponse(saveAndFlushUniqueSku(product, sku));
     }
 
     public ProductResponse updateProduct(ProductRequest request, Long id) {
@@ -52,7 +58,7 @@ public class ProductService {
 
         productMapper.updateEntity(request, product);
         product.setSku(sku);
-        return productMapper.toResponse(productRepository.saveAndFlush(product));
+        return productMapper.toResponse(saveAndFlushUniqueSku(product, sku));
     }
 
     /** Business rule 7: a product used in any document (any status) cannot be deleted. */
@@ -66,8 +72,26 @@ public class ProductService {
         productRepository.delete(product);
     }
 
+    /**
+     * The exists-check above is not atomic: two parallel requests can both pass it. Flushing here makes the
+     * unique constraint on sku fail inside this method, so the loser gets the same 409 as with the check.
+     * The SKU is the only unique column, and validation covers the other constraints.
+     */
+    private Product saveAndFlushUniqueSku(Product product, String sku) {
+        try {
+            return productRepository.saveAndFlush(product);
+        } catch (DataIntegrityViolationException ex) {
+            throw duplicateSku(sku);
+        }
+    }
+
     private Product findProduct(Long id) {
         return productRepository.findById(id).orElseThrow(() -> new NotFoundException(ENTITY_LABEL, id));
+    }
+
+    /** Escapes LIKE wildcards, so a search for "50%" or "M_4" matches literally (escape character: backslash). */
+    private static String escapeLike(String term) {
+        return term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
     }
 
     private static String normalizeSku(String sku) {

@@ -34,7 +34,7 @@ public class Product extends BaseEntity {
     private Long version;
 
     public void changeQuantity(int delta) {
-        int newQuantity = this.quantity+ delta;
+        int newQuantity = Math.addExact(this.quantity, delta); // fails loudly instead of overflowing
 
         if(newQuantity < 0) {
             throw new IllegalStateException(

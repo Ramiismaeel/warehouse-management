@@ -3,6 +3,8 @@ package training.backend.inbound;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.BatchSize;
+import training.backend.document.DocumentNumberGenerator;
 import training.backend.document.DocumentStatus;
 import training.backend.entities.BaseEntity;
 import training.backend.product.Product;
@@ -29,11 +31,12 @@ public class InboundDelivery extends BaseEntity {
     @Setter(AccessLevel.NONE)
     private DocumentStatus status = DocumentStatus.DRAFT;
 
-    private LocalDate deliveryDate = LocalDate.now();
+    private LocalDate deliveryDate = LocalDate.now(DocumentNumberGenerator.BUSINESS_ZONE);
 
     private String note;
 
     @Setter(AccessLevel.NONE)
+    @BatchSize(size = 50) // lists without a fetch join (dashboard) load items for many documents at once
     @OneToMany(mappedBy = "inboundDelivery", cascade = CascadeType.ALL , orphanRemoval = true)
     private List<InboundDeliveryItem> items = new ArrayList<>();
 

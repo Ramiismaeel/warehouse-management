@@ -50,6 +50,19 @@ class SpaConfigTest {
     }
 
     @Test
+    void missingAsset_isNotFoundInsteadOfIndexHtml() throws Exception {
+        // e.g. a stale /assets/index-<old hash>.js after a deploy: must not be answered with HTML
+        mockMvc.perform(get("/assets/missing.js"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void missingFileInRoot_isNotFound() throws Exception {
+        mockMvc.perform(get("/does-not-exist.png"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
     void unknownApiPath_staysNotFound() throws Exception {
         mockMvc.perform(get("/api/v1/does-not-exist"))
                 .andExpect(status().isNotFound());

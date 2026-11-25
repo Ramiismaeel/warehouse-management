@@ -2,6 +2,7 @@ import { z } from "zod"
 
 import type { DocumentItem } from "@/features/documents/types"
 import { t } from "@/i18n/de"
+import { MAX_QUANTITY } from "@/lib/stock"
 
 const messages = t.documents.validation
 
@@ -21,7 +22,8 @@ export const documentItemSchema = z.object({
   quantity: z
     .number({ error: messages.quantityRequired })
     .int(messages.quantityInteger)
-    .min(1, messages.quantityMin),
+    .min(1, messages.quantityMin)
+    .max(MAX_QUANTITY, messages.quantityMax),
 })
 
 /**

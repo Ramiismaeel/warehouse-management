@@ -12,6 +12,7 @@ import {
 } from "@/features/outbound/api"
 import type { OutboundOrderDetail, OutboundOrderRequest } from "@/features/outbound/types"
 import { productKeys } from "@/features/products/queries"
+import { isValidId } from "@/lib/ids"
 
 export const outboundKeys = {
   all: ["outbound-orders"] as const,
@@ -33,7 +34,7 @@ export function useOutboundOrder(id: number) {
   return useQuery({
     queryKey: outboundKeys.detail(id),
     queryFn: () => fetchOutboundOrder(id),
-    enabled: isValidOutboundOrderId(id),
+    enabled: isValidId(id),
   })
 }
 
@@ -53,6 +54,7 @@ export function useUpdateOutboundOrder() {
     mutationFn: ({ id, request }: { id: number; request: OutboundOrderRequest }) =>
       updateOutboundOrder(id, request),
     onSuccess: (order) => storeSavedDraft(queryClient, order),
+    onError: (_error, { id }) => refreshAfterFailure(queryClient, id),
   })
 }
 
@@ -62,12 +64,14 @@ export function useConfirmOutboundOrder() {
   return useMutation({
     mutationFn: confirmOutboundOrder,
     onSuccess: (order) => storeStockChange(queryClient, order),
-    // A 409 means our Bestand numbers are outdated: reload them for the draft's stock check.
-    onError: (error) => {
-      if (error.shortages.length > 0) {
-        return queryClient.invalidateQueries({ queryKey: productKeys.all })
-      }
-    },
+    // A 409 with shortages means our Bestand numbers are outdated too: reload them for the draft's stock check.
+    onError: (error, id) =>
+      Promise.all([
+        refreshAfterFailure(queryClient, id),
+        error.shortages.length > 0
+          ? queryClient.invalidateQueries({ queryKey: productKeys.all })
+          : undefined,
+      ]),
   })
 }
 
@@ -77,6 +81,7 @@ export function useCancelOutboundOrder() {
   return useMutation({
     mutationFn: cancelOutboundOrder,
     onSuccess: (order) => storeStockChange(queryClient, order),
+    onError: (_error, id) => refreshAfterFailure(queryClient, id),
   })
 }
 
@@ -85,14 +90,16 @@ export function useDeleteOutboundOrder() {
 
   return useMutation({
     mutationFn: deleteOutboundOrder,
-    // Only the list: the detail page of the deleted draft is still open until it navigates away,
-    // and removing its query would refetch it and flash a 404. A draft has no stock effect.
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: outboundKeys.lists() }),
+    // Not the detail: the detail page of the deleted draft is still open until it navigates away,
+    // and removing its query would refetch it and flash a 404. A draft has no stock effect,
+    // but the dashboard counts open drafts.
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: outboundKeys.lists() }),
+        queryClient.invalidateQueries({ queryKey: dashboardKeys.all }),
+      ]),
+    onError: (_error, id) => refreshAfterFailure(queryClient, id),
   })
-}
-
-export function isValidOutboundOrderId(id: number): boolean {
-  return Number.isInteger(id) && id > 0
 }
 
 /**
@@ -117,5 +124,16 @@ function storeStockChange(queryClient: QueryClient, order: OutboundOrderDetail) 
     queryClient.invalidateQueries({ queryKey: outboundKeys.lists() }),
     queryClient.invalidateQueries({ queryKey: productKeys.all }),
     queryClient.invalidateQueries({ queryKey: dashboardKeys.all }),
+  ])
+}
+
+/**
+ * A failed action often means our copy is outdated, e.g. a 409 because the Warenausgang was
+ * confirmed or deleted in another tab. Reload it, so the page shows its real status and buttons.
+ */
+function refreshAfterFailure(queryClient: QueryClient, id: number) {
+  return Promise.all([
+    queryClient.invalidateQueries({ queryKey: outboundKeys.detail(id) }),
+    queryClient.invalidateQueries({ queryKey: outboundKeys.lists() }),
   ])
 }

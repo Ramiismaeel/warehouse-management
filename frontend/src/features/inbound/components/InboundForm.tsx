@@ -4,12 +4,14 @@ import { Controller, FormProvider, useForm } from "react-hook-form"
 import { Link } from "react-router"
 
 import { DatePicker } from "@/components/shared/DatePicker"
+import { UnsavedChangesGuard } from "@/components/shared/UnsavedChangesGuard"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { DocumentItemsEditor } from "@/features/documents/components/DocumentItemsEditor"
+import type { DocumentItem } from "@/features/documents/types"
 import {
   INBOUND_FORM_FIELDS,
   inboundFormSchema,
@@ -28,10 +30,12 @@ interface InboundFormProps {
   cancelTo: string
   /** Saves the draft. A rejected promise puts field errors on the fields, other errors in a toast. */
   onSubmit: (request: InboundDeliveryRequest) => Promise<void>
+  /** Edit page: the saved positions, so the pickers show their Artikel before the Artikel list has loaded. */
+  savedItems?: readonly DocumentItem[]
 }
 
 /** Wareneingang draft form for the create and edit pages: Kopfdaten + Artikelzeilen. */
-export function InboundForm({ defaultValues, cancelTo, onSubmit }: InboundFormProps) {
+export function InboundForm({ defaultValues, cancelTo, onSubmit, savedItems }: InboundFormProps) {
   const showApiError = useApiErrorToast()
   const form = useForm<InboundFormValues, unknown, InboundDeliveryRequest>({
     resolver: zodResolver(inboundFormSchema),
@@ -42,7 +46,7 @@ export function InboundForm({ defaultValues, cancelTo, onSubmit }: InboundFormPr
     control,
     register,
     setError,
-    formState: { errors, isSubmitting },
+    formState: { errors, isDirty, isSubmitting },
   } = form
 
   const submit = form.handleSubmit(async (request) => {
@@ -59,6 +63,7 @@ export function InboundForm({ defaultValues, cancelTo, onSubmit }: InboundFormPr
   return (
     <FormProvider {...form}>
       <form onSubmit={submit} noValidate className="flex max-w-4xl flex-col gap-6">
+        <UnsavedChangesGuard when={isDirty && !isSubmitting} />
         <Card>
           <CardHeader>
             <CardTitle>{text.header}</CardTitle>
@@ -118,7 +123,7 @@ export function InboundForm({ defaultValues, cancelTo, onSubmit }: InboundFormPr
             <CardDescription>{text.itemsDescription}</CardDescription>
           </CardHeader>
           <CardContent>
-            <DocumentItemsEditor />
+            <DocumentItemsEditor fallbackProducts={savedItems} />
           </CardContent>
         </Card>
 

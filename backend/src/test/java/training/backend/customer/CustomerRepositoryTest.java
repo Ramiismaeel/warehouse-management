@@ -65,6 +65,13 @@ class CustomerRepositoryTest {
         assertThat(customerRepository.search("xyz")).isEmpty();
     }
 
+    @Test
+    void search_withEscapedWildcards_matchesThemLiterally() {
+        // CustomerService escapes % and _; unescaped they would match every customer.
+        assertThat(customerRepository.search("\\%")).isEmpty();
+        assertThat(customerRepository.search("\\_")).isEmpty();
+    }
+
     // ---------- countOutboundOrderUsages ----------
 
     @Test

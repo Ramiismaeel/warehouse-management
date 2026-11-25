@@ -5,6 +5,7 @@ import { Link } from "react-router"
 
 import { ProductImage } from "@/components/shared/ProductImage"
 import { StockBadge } from "@/components/shared/StockBadge"
+import { UnsavedChangesGuard } from "@/components/shared/UnsavedChangesGuard"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -36,6 +37,7 @@ import { useDebouncedValue } from "@/hooks/use-debounced-value"
 import { t } from "@/i18n/de"
 import { applyFieldErrors, toApiError } from "@/lib/errors"
 import { formatNumber } from "@/lib/format"
+import { MAX_QUANTITY } from "@/lib/stock"
 import { cn } from "@/lib/utils"
 
 const text = t.products
@@ -63,7 +65,7 @@ export function ProductForm({ defaultValues, quantity, onSubmit }: ProductFormPr
     control,
     register,
     setError,
-    formState: { errors, isSubmitting },
+    formState: { errors, isDirty, isSubmitting },
   } = form
 
   const submit = form.handleSubmit(async (request) => {
@@ -83,6 +85,7 @@ export function ProductForm({ defaultValues, quantity, onSubmit }: ProductFormPr
       noValidate
       className="grid max-w-5xl gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start"
     >
+      <UnsavedChangesGuard when={isDirty && !isSubmitting} />
       <Card>
         <CardContent>
           <FieldGroup>
@@ -159,6 +162,7 @@ export function ProductForm({ defaultValues, quantity, onSubmit }: ProductFormPr
                 type="number"
                 inputMode="numeric"
                 min={0}
+                max={MAX_QUANTITY}
                 step={1}
                 aria-invalid={Boolean(errors.minQuantity)}
                 {...register("minQuantity", { valueAsNumber: true })}

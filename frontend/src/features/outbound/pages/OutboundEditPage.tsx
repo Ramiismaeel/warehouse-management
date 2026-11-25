@@ -7,19 +7,16 @@ import { EmptyState } from "@/components/shared/EmptyState"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { OutboundForm } from "@/features/outbound/components/OutboundForm"
-import {
-  isValidOutboundOrderId,
-  useOutboundOrder,
-  useUpdateOutboundOrder,
-} from "@/features/outbound/queries"
+import { useOutboundOrder, useUpdateOutboundOrder } from "@/features/outbound/queries"
 import { toOutboundFormValues } from "@/features/outbound/schema"
 import type { OutboundOrderRequest } from "@/features/outbound/types"
 import { t } from "@/i18n/de"
+import { isValidId, parseIdParam } from "@/lib/ids"
 
 const text = t.outbound
 
 export function OutboundEditPage() {
-  const id = Number(useParams().id)
+  const id = parseIdParam(useParams().id)
   const order = useOutboundOrder(id)
   const updateOrder = useUpdateOutboundOrder()
   const navigate = useNavigate()
@@ -33,7 +30,7 @@ export function OutboundEditPage() {
 
   let title: string = text.edit.title
   let content
-  if (!isValidOutboundOrderId(id) || order.error?.status === 404) {
+  if (!isValidId(id) || order.error?.status === 404) {
     content = (
       <EmptyState
         icon={FileQuestion}
@@ -89,6 +86,8 @@ export function OutboundEditPage() {
         key={order.data.id}
         defaultValues={toOutboundFormValues(order.data)}
         cancelTo={detailPath}
+        savedCustomer={order.data.customer}
+        savedItems={order.data.items}
         onSubmit={save}
       />
     )

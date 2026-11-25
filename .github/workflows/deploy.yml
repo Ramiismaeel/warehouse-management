@@ -1,5 +1,6 @@
 # Builds the frontend, puts it into the Spring Boot jar, pushes one Docker image and redeploys Render.
 # Secrets: DOCKERHUB_USERNAME, DOCKERHUB_PASSWORD (Docker Hub access token), DOCKERHUB_TAG, RENDER_DEPLOY_HOOK.
+# Optional: RENDER_DEPLOY_HOOK_URL_2 (deploy hook of a second Render service using the same image; skipped if unset).
 name: deploy
 
 on:
@@ -98,8 +99,12 @@ jobs:
           RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
         run: curl -fsS -X POST "$RENDER_DEPLOY_HOOK" > /dev/null
 
-      - name: Trigger Render deploy hook2
-        if: always()
+      - name: Trigger second Render service (optional, only if RENDER_DEPLOY_HOOK_URL_2 is set)
         env:
-          RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL_2 }}
-        run: curl -fsS -X POST "$RENDER_DEPLOY_HOOK" > /dev/null
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL_2 }}
+        run: |
+          if [ -n "$HOOK" ]; then
+            curl -fsS -X POST "$HOOK" > /dev/null
+          else
+            echo "RENDER_DEPLOY_HOOK_URL_2 not set, skipping."
+          fi

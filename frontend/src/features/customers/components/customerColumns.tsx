@@ -6,9 +6,6 @@ import { t } from "@/i18n/de"
 const column = createDataTableColumnHelper<Customer>()
 const text = t.customers
 
-/** Shown in a cell whose optional value is missing. */
-const MISSING = "–"
-
 /** Columns of the Kunden list. `onDelete` opens the confirm dialog for that customer. */
 export function createCustomerColumns(onDelete: (customer: Customer) => void) {
   return column.columns([
@@ -20,13 +17,13 @@ export function createCustomerColumns(onDelete: (customer: Customer) => void) {
       id: "email",
       header: text.columns.email,
       cell: ({ getValue }) =>
-        getValue() || <span className="text-muted-foreground">{MISSING}</span>,
+        getValue() || <span className="text-muted-foreground">{t.common.missingValue}</span>,
     }),
     column.accessor((customer) => customer.phone ?? "", {
       id: "phone",
       header: text.columns.phone,
       cell: ({ getValue }) =>
-        getValue() || <span className="text-muted-foreground">{MISSING}</span>,
+        getValue() || <span className="text-muted-foreground">{t.common.missingValue}</span>,
       meta: { className: "whitespace-nowrap" },
     }),
     // "10115 Berlin". Search also finds the PLZ.
@@ -34,7 +31,7 @@ export function createCustomerColumns(onDelete: (customer: Customer) => void) {
       id: "city",
       header: text.columns.city,
       cell: ({ getValue }) =>
-        getValue() || <span className="text-muted-foreground">{MISSING}</span>,
+        getValue() || <span className="text-muted-foreground">{t.common.missingValue}</span>,
     }),
     column.display({
       id: "actions",

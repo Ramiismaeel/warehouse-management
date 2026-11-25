@@ -7,19 +7,16 @@ import { EmptyState } from "@/components/shared/EmptyState"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { InboundForm } from "@/features/inbound/components/InboundForm"
-import {
-  isValidInboundDeliveryId,
-  useInboundDelivery,
-  useUpdateInboundDelivery,
-} from "@/features/inbound/queries"
+import { useInboundDelivery, useUpdateInboundDelivery } from "@/features/inbound/queries"
 import { toInboundFormValues } from "@/features/inbound/schema"
 import type { InboundDeliveryRequest } from "@/features/inbound/types"
 import { t } from "@/i18n/de"
+import { isValidId, parseIdParam } from "@/lib/ids"
 
 const text = t.inbound
 
 export function InboundEditPage() {
-  const id = Number(useParams().id)
+  const id = parseIdParam(useParams().id)
   const delivery = useInboundDelivery(id)
   const updateDelivery = useUpdateInboundDelivery()
   const navigate = useNavigate()
@@ -33,7 +30,7 @@ export function InboundEditPage() {
 
   let title: string = text.edit.title
   let content
-  if (!isValidInboundDeliveryId(id) || delivery.error?.status === 404) {
+  if (!isValidId(id) || delivery.error?.status === 404) {
     content = (
       <EmptyState
         icon={FileQuestion}
@@ -89,6 +86,7 @@ export function InboundEditPage() {
         key={delivery.data.id}
         defaultValues={toInboundFormValues(delivery.data)}
         cancelTo={detailPath}
+        savedItems={delivery.data.items}
         onSubmit={save}
       />
     )

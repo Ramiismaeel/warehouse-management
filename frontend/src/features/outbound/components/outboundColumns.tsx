@@ -9,9 +9,6 @@ import { formatDate, formatNumber } from "@/lib/format"
 const column = createDataTableColumnHelper<OutboundOrderSummary>()
 const text = t.outbound.fields
 
-/** Shown when a Warenausgang has no date. */
-const MISSING = "–"
-
 /** Columns of the Warenausgang list. The number links to the detail page. */
 export const OUTBOUND_COLUMNS = column.columns([
   column.accessor("number", {
@@ -37,7 +34,7 @@ export const OUTBOUND_COLUMNS = column.columns([
       getValue() ? (
         formatDate(getValue())
       ) : (
-        <span className="text-muted-foreground">{MISSING}</span>
+        <span className="text-muted-foreground">{t.common.missingValue}</span>
       ),
     meta: { className: "whitespace-nowrap" },
   }),

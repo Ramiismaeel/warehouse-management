@@ -78,6 +78,7 @@ export function OutboundListPage() {
         searchColumns={["number", "customerName"]}
         searchPlaceholder={text.list.search}
         initialSorting={[{ id: "number", desc: true }]}
+        pageResetKey={status}
         emptyState={emptyState}
       />
     </>
