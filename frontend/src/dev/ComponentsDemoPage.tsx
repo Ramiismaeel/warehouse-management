@@ -66,7 +66,7 @@ const COLUMNS = column.columns([
   column.display({
     id: "image",
     header: "",
-    cell: ({ row }) => <ProductImage sku={row.original.sku} alt="" />,
+    cell: () => <ProductImage alt="" />,
   }),
   column.accessor("sku", { header: "SKU" }),
   column.accessor("name", { header: "Name" }),
@@ -171,28 +171,22 @@ export function ComponentsDemoPage() {
         <div className="flex flex-wrap items-end gap-6 text-sm">
           <Labeled label="imageUrl gesetzt">
             <ProductImage
-              sku="A"
               imageUrl="https://picsum.photos/id/1/400/400"
               alt="Mit imageUrl"
               className="size-24"
             />
           </Labeled>
-          <Labeled label="ohne imageUrl → picsum">
-            <ProductImage sku="ART-0001" alt="Picsum-Fallback" className="size-24" />
+          <Labeled label="ohne imageUrl → Icon">
+            <ProductImage alt="Ohne Bild" className="size-24" />
           </Labeled>
-          <Labeled label="kaputte imageUrl → picsum">
+          <Labeled label="kaputte imageUrl → Icon">
             <ProductImage
-              sku="ART-0002"
               imageUrl="https://invalid.example/x.png"
               alt="Kaputte URL"
               className="size-24"
             />
           </Labeled>
         </div>
-        <p className="text-xs text-muted-foreground">
-          Das Package-Icon erscheint, wenn auch picsum nicht lädt (z. B. offline in den DevTools
-          testen).
-        </p>
       </Section>
 
       <Section title="EmptyState">

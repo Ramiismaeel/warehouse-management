@@ -34,6 +34,9 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run build
+        env:
+          # The Unsplash Access Key ends up in the public JS anyway, so a repository variable works as well as a secret.
+          VITE_UNSPLASH_ACCESS_KEY: ${{ secrets.UNSPLASH_ACCESS_KEY || vars.UNSPLASH_ACCESS_KEY }}
 
       - uses: actions/upload-artifact@v4
         with:

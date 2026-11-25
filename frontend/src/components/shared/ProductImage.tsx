@@ -4,7 +4,6 @@ import { useState } from "react"
 import { cn } from "@/lib/utils"
 
 interface ProductImageProps {
-  sku: string
   imageUrl?: string | null
   /**
    * The product name when the image stands alone (e.g. a preview). "" when the name is shown right
@@ -15,20 +14,11 @@ interface ProductImageProps {
   className?: string
 }
 
-/** Placeholder image per SKU, so every product looks different but stable. */
-function picsumUrl(sku: string) {
-  return `https://picsum.photos/seed/${encodeURIComponent(sku)}/400/400`
-}
+/** Product picture from imageUrl. Without a URL, or when it fails to load, the lucide Package icon. */
+export function ProductImage({ imageUrl, alt, className }: ProductImageProps) {
+  const [failedUrl, setFailedUrl] = useState<string | null>(null)
 
-/**
- * Product picture with fallbacks: imageUrl → picsum image seeded by SKU → lucide Package icon.
- * Each source that fails to load is skipped.
- */
-export function ProductImage({ sku, imageUrl, alt, className }: ProductImageProps) {
-  const [failedSources, setFailedSources] = useState<string[]>([])
-
-  const sources = [imageUrl, picsumUrl(sku)].filter((src): src is string => Boolean(src))
-  const src = sources.find((candidate) => !failedSources.includes(candidate))
+  const src = imageUrl && imageUrl !== failedUrl ? imageUrl : null
   const boxClasses = cn("size-10 shrink-0 overflow-hidden rounded-md bg-muted", className)
 
   if (!src) {
@@ -48,7 +38,7 @@ export function ProductImage({ sku, imageUrl, alt, className }: ProductImageProp
       alt={alt}
       loading="lazy"
       className={cn("object-cover", boxClasses)}
-      onError={() => setFailedSources((failed) => [...failed, src])}
+      onError={() => setFailedUrl(src)}
     />
   )
 }

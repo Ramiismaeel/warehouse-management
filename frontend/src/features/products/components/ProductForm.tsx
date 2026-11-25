@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod"
-import { LoaderCircle, Package } from "lucide-react"
+import { LoaderCircle } from "lucide-react"
 import { Controller, useForm, useWatch, type Control } from "react-hook-form"
 import { Link } from "react-router"
 
@@ -31,6 +31,7 @@ import {
   productFormSchema,
   type ProductFormValues,
 } from "@/features/products/schema"
+import { fetchUnsplashImageUrl } from "@/features/products/api"
 import { PRODUCT_UNITS, type ProductRequest } from "@/features/products/types"
 import { useApiErrorToast } from "@/hooks/use-api-error-toast"
 import { useDebouncedValue } from "@/hooks/use-debounced-value"
@@ -38,7 +39,6 @@ import { t } from "@/i18n/de"
 import { applyFieldErrors, toApiError } from "@/lib/errors"
 import { formatNumber } from "@/lib/format"
 import { MAX_QUANTITY } from "@/lib/stock"
-import { cn } from "@/lib/utils"
 
 const text = t.products
 
@@ -67,6 +67,18 @@ export function ProductForm({ defaultValues, quantity, onSubmit }: ProductFormPr
     setError,
     formState: { errors, isDirty, isSubmitting },
   } = form
+  const nameField = register("name")
+
+  /** After the name is entered, fill an empty Bild-URL with a matching Unsplash photo. */
+  async function suggestImage(name: string) {
+    if (!name.trim() || form.getValues("imageUrl")) {
+      return
+    }
+    const url = await fetchUnsplashImageUrl(name)
+    if (url && !form.getValues("imageUrl")) {
+      form.setValue("imageUrl", url, { shouldDirty: true })
+    }
+  }
 
   const submit = form.handleSubmit(async (request) => {
     try {
@@ -109,7 +121,11 @@ export function ProductForm({ defaultValues, quantity, onSubmit }: ProductFormPr
                 autoComplete="off"
                 placeholder={text.form.namePlaceholder}
                 aria-invalid={Boolean(errors.name)}
-                {...register("name")}
+                {...nameField}
+                onBlur={(event) => {
+                  void nameField.onBlur(event)
+                  void suggestImage(event.target.value)
+                }}
               />
               <FieldError errors={[errors.name]} />
             </Field>
@@ -216,15 +232,12 @@ interface ProductPreviewProps {
 
 /** Image as it will appear in the list, plus the read-only Bestand on the edit page. */
 function ProductPreview({ control, quantity, savedMinQuantity }: ProductPreviewProps) {
-  const [sku, name, unit, minQuantity, imageUrl] = useWatch({
+  const [name, unit, minQuantity, imageUrl] = useWatch({
     control,
-    name: ["sku", "name", "unit", "minQuantity", "imageUrl"],
+    name: ["name", "unit", "minQuantity", "imageUrl"],
   })
-  // The backend stores the SKU in upper case, and the list's placeholder image is seeded by it.
-  const previewSku = useDebouncedValue(sku.trim().toUpperCase(), PREVIEW_DELAY_MS)
   const previewUrl = useDebouncedValue(imageUrl.trim(), PREVIEW_DELAY_MS)
   const validUrl = isHttpUrl(previewUrl) ? previewUrl : null
-  const imageClasses = "aspect-square size-auto w-full rounded-2xl"
 
   return (
     <Card>
@@ -233,26 +246,11 @@ function ProductPreview({ control, quantity, savedMinQuantity }: ProductPreviewP
         <CardDescription>{text.form.previewDescription}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {previewSku || validUrl ? (
-          <ProductImage
-            sku={previewSku}
-            imageUrl={validUrl}
-            alt={name.trim() || text.form.previewAlt}
-            className={imageClasses}
-          />
-        ) : (
-          // Nothing to show yet: same icon ProductImage uses when no image loads.
-          <div
-            role="img"
-            aria-label={text.form.previewAlt}
-            className={cn(
-              "flex items-center justify-center bg-muted text-muted-foreground",
-              imageClasses,
-            )}
-          >
-            <Package className="size-1/3" />
-          </div>
-        )}
+        <ProductImage
+          imageUrl={validUrl}
+          alt={name.trim() || text.form.previewAlt}
+          className="aspect-square size-auto w-full rounded-2xl"
+        />
 
         {quantity !== undefined && (
           <div className="space-y-1.5 border-t pt-4">
